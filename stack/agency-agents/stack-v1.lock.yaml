@@ -1,0 +1,83 @@
+# Stack v1 lock file — Agency Agents layer.
+#
+# Pins the exact upstream revision and the import contract so that any
+# re-install resolves to the same 9 division-lead agents, landed paused with
+# timers off and a $0 monthly budget. Do not hand-edit the `pinned` block
+# without a board-approved change to this layer.
+schema: stack/v1
+layer: agency-agents
+version: "1.0.0"
+
+pinned:
+  source:
+    repo: paperclipai/companies
+    path: agency-agents
+    ref: 514503bf4f0ca88ebf16d5dc648e085d587f268f
+    url: https://github.com/paperclipai/companies/tree/514503bf4f0ca88ebf16d5dc648e085d587f268f/agency-agents
+  package:
+    agents: 167
+    divisions: 10
+    teamDocs: 9
+    skills: 0
+    projects: 0
+    tasks: 0
+
+# Import contract. `target: existing` imports into the RioLabs AI company
+# without touching company metadata, projects, tasks, or skills.
+import:
+  target: existing
+  include: [agents]
+  collision: skip
+  # Only the 9 division leads are imported in Phase 1. The template `ceo` and
+  # `cmo` collide with our core CEO and CMO, so they are excluded, and the
+  # remaining 156 non-lead agents are out of scope until a later checkpoint.
+  agents:
+    - slug: vp-engineering
+      name: VP of Engineering
+      title: VP of Engineering & CTO
+      sourceReportsTo: ceo
+      reportsTo: cto # remapped: reports to our CTO, not a second CEO
+    - slug: creative-director
+      name: Creative Director
+      sourceReportsTo: ceo
+      reportsTo: ceo
+    - slug: vp-product
+      name: VP of Product
+      sourceReportsTo: ceo
+      reportsTo: ceo
+    - slug: vp-sales
+      name: VP of Sales
+      sourceReportsTo: ceo
+      reportsTo: ceo
+    - slug: qa-director
+      name: QA Director
+      sourceReportsTo: vp-engineering
+      reportsTo: vp-engineering
+    - slug: vp-operations
+      name: VP of Operations
+      sourceReportsTo: ceo
+      reportsTo: ceo
+    - slug: game-dev-director
+      name: Game Development Director
+      sourceReportsTo: ceo
+      reportsTo: ceo
+    - slug: xr-director
+      name: XR Director
+      sourceReportsTo: vp-engineering
+      reportsTo: vp-engineering
+    - slug: chief-of-staff
+      name: Chief of Staff
+      sourceReportsTo: ceo
+      reportsTo: ceo
+
+# Every imported agent is landed paused, with heartbeat timers disabled and a
+# $0 monthly budget. The company budget is unchanged. No agent starts and no
+# money is spent before the board's activation checkpoint.
+landing:
+  status: paused
+  timers: disabled
+  budgetMonthlyCents: 0
+
+excluded:
+  slugs: [ceo, cmo]
+  note: "Template ceo/cmo collide with our core CEO and CMO; our agents win."
