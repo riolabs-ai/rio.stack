@@ -77,6 +77,12 @@ landing:
   status: paused
   timers: disabled
   budgetMonthlyCents: 0
+  # Adapter contract. The upstream package declares no `adapter` block for any
+  # agent, so the importer would default them to `adapterType: "process"`, which
+  # safe imports forbid. install.sh maps every slug to this adapter via the
+  # `adapterOverrides` request field; verify.sh asserts it for all 9 leads.
+  adapter: opencode_local
+  model: opencode/glm-5.3-flash-free
 
 excluded:
   slugs: [ceo, cmo]
