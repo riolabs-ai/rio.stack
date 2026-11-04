@@ -319,3 +319,99 @@ requirements:
     Writing everything down is overhead. Answer — only decisions and diagnoses, not chat.
   verdict: partial
   check: manual
+- id: R-23
+  cluster: H
+  claim: >-
+    GitHub is the single source of truth for tasks, projects and work product; nothing load-bearing lives only
+    in a chat, a laptop file, an editor, an email or another agent's context.
+  served_by: [issues, PRs, Projects v2, Actions, rulesets, releases, checks]
+  observed_failure: >-
+    Work state, specs and deliverables were reconstructed from chat scrollback, local files and an editor
+    buffer; two finished cards were reported as failures because the record lived nowhere durable.
+  adversarial_test: >-
+    Pick any in-flight item. Ask for its state, owner, spec and evidence using only GitHub. Anything that
+    requires opening a conversation, a laptop path, an inbox or an IDE fails this requirement.
+  strongest_objection: >-
+    GitHub is a poor fit for exploratory thinking and long prose. Answer — exploration is allowed anywhere; the
+    moment it is load-bearing it must land in a GitHub object with an owner and a link.
+  verdict: partial
+  check: manual
+- id: R-24
+  cluster: H
+  claim: >-
+    An agent never answers 'I cannot' without first enumerating and testing every credential, route and scope
+    available to it; it reports the missing grant, not a missing capability.
+  served_by: [GH_TOKEN, per-profile .env, secrets manager, gh auth accounts, REST vs GraphQL vs Actions]
+  observed_failure: >-
+    A token-scope gap on one API was reported as a platform limitation, and a capability audit stopped at the
+    first 403 instead of testing the second account and the other transports.
+  adversarial_test: >-
+    For any refusal, require the tested matrix: credential source x transport x scope, with the exact failing
+    response. A refusal without that matrix is not a finding.
+  strongest_objection: >-
+    Some limits are real and a test matrix wastes time on obvious walls. Answer — obvious walls are cheap to
+    include in the matrix; the expensive error is a false wall that parks real work for days.
+  verdict: unmet
+  check: manual
+- id: R-25
+  cluster: H
+  claim: >-
+    The foundry is always-on and fault tolerant: a failing component degrades loudly and routing continues on a
+    tested fallback.
+  served_by: [provider fallback chains, health monitors, supervisor restart policy, alerting]
+  observed_failure: >-
+    Silent degradation was normal: a fallback chain reported 'connected' from a probe that read the wrong
+    environment, and a stalled worker was indistinguishable from a slow one.
+  adversarial_test: >-
+    Kill the primary provider, the database branch and the deploy target in turn. The system must still answer,
+    and each event must produce one visible alert naming the degraded component.
+  strongest_objection: >-
+    Always-on is a budget claim, not a design claim; redundancy costs money on every layer. Answer — the
+    requirement is degrade loudly and continue, not duplicate every tier.
+  verdict: unmet
+  check: manual
+- id: R-26
+  cluster: H
+  claim: >-
+    Onboarding a new product, client or campaign is a repeatable, scripted procedure with nominal human-in-the-
+    loop, not a bespoke project.
+  served_by: [templated repo, board, env, secrets project, deploy target, monitoring, gates]
+  observed_failure: >-
+    Every new entity started from zero: repos, boards, secrets, env and deploy wiring were rebuilt by hand each
+    time, with different conventions.
+  adversarial_test: >-
+    Onboard a fictional client end to end from the record of a previous onboarding and count the human steps.
+    More than a handful means it is not a procedure.
+  strongest_objection: >-
+    Each client is different, so a fixed procedure will not fit. Answer — the procedure is a checklist of
+    capabilities with per-entity values, not a copy of one client.
+  verdict: unmet
+  check: manual
+- id: R-27
+  cluster: H
+  claim: >-
+    Every layer carries a cost ceiling, so the stack cannot be correct and unaffordable.
+  served_by: [provider keys per profile, secrets projects, boards, deploy targets]
+  observed_failure: >-
+    No requirement mentioned money, so nothing constrained the stack from growing expensive while staying
+    correct.
+  adversarial_test: >-
+    Price the stack monthly from configuration alone. If nobody can, cost is unmanaged.
+  strongest_objection: >-
+    Cost belongs to the business, not the requirements layer. Answer — an always-on guarantee is a spend
+    decision, so it belongs here.
+  verdict: unverified
+  check: manual
+- id: R-28
+  cluster: H
+  claim: >-
+    Each credential class has exactly one owner and one home; duplicates are treated as drift.
+  served_by: [secrets manager projects, per-profile .env, rotation policy]
+  observed_failure: >-
+    The same provider key lived in a root .env, a profile .env and a token file, and rotation fixed one copy.
+  adversarial_test: >-
+    Enumerate every place one key appears. More than one unmanaged copy means the class has no owner.
+  strongest_objection: >-
+    Redundant copies are resilience. Answer — only if rotation is automated across all copies.
+  verdict: unverified
+  check: manual
