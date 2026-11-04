@@ -1,0 +1,31 @@
+id: foundry-onboarding
+version: 1
+title: Foundry onboarding — new product, client or campaign goes live
+when_to_use: A new entity needs repos, governance, board, environment, deploy, monitoring and a stack
+  lock.
+requires_grants:
+- repo (admin)
+- workflow
+- project + read:project
+- 'service tokens: Vercel, Neon, Sentry, Resend'
+blast_radius: mutation
+steps:
+- '1 repo: gh repo create <owner>/<name> --private (or from the foundry template) — record the URL'
+- '2 governance: apply rulesets from JSON (gh api .../rulesets -X POST -F ruleset.json), labels, milestones,
+  issue forms'
+- '3 board: create or link the project (needs project scope) and add the intake item — one GraphQL mutation'
+- '4 environment: vercel link + env push, neon branch, sentry project, resend domain — each scripted,
+  values never printed'
+- '5 monitoring: deploy the app, confirm the health endpoint, wire the alert route'
+- '6 lock: write stack/<layer>/*.lock.yaml so the entity records exactly what it runs on'
+- '7 gate: run stack/foundation/verify.sh; onboarding fails if any enforced requirement fails'
+hil_gates:
+- before creating the repo (confirm name and owner)
+- before writing env or secrets
+- before pointing DNS at a new deploy
+deliverable: live environment + locked stack + verify.sh log + the intake issue closed with evidence
+acceptance:
+- verify.sh exits 0
+- every secret exists in the secrets store, not in a file
+- lock file pins real versions
+estimated_calls: ~40

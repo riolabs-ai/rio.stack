@@ -1,0 +1,30 @@
+id: repo-custodian
+version: 1
+title: Fleet custodian — health sweep across every repo
+when_to_use: Quarterly hygiene, after an onboarding wave, or when nobody can say which repos are alive.
+requires_grants:
+- repo (read)
+- security_events (read)
+- workflow (read)
+blast_radius: read-only
+steps:
+- 'Enumerate: gh repo list <owner> --limit 500 --json name,isArchived,isPrivate,pushedAt,defaultBranchRef'
+- 'Bulk detail in one GraphQL call: default branch, open PR count, open issue count, last release, vulnerability
+  alerts'
+- 'Per repo, presence test via REST contents: README, LICENSE, AGENTS.md, .github/workflows, CODEOWNERS,
+  dependabot.yml'
+- 'Governance: gh api repos/{o}/{r}/rulesets and .../branches/{default}/protection — record required checks
+  and bypass actors'
+- 'Risk: secret-scanning alerts, Dependabot alerts, stale branches (merged >30d), unmerged >90d'
+- 'Classify each repo: ACTIVE / DORMANT / ARCHIVE-CANDIDATE / UNGOVERNED — with the evidence line for
+  each'
+hil_gates:
+- before archiving any repo
+- before deleting any branch
+- before opening a PR batch
+deliverable: fleet-report.md + fleet.json to an issue in rio.stack, one PR per repo group for fixes
+acceptance:
+- every repo has a row
+- every verdict cites a command or file
+- zero mutation outside a named PR batch
+estimated_calls: ~3 per repo, batched to <200 calls for 100 repos

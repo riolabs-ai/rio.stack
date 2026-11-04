@@ -1,0 +1,27 @@
+id: ruleset-gauntlet
+version: 1
+title: Ruleset gauntlet — governance and permission drift audit
+when_to_use: Before onboarding a client, after a permissions incident, or on any 'why did this merge?'
+  question.
+requires_grants:
+- repo (admin read)
+- read:org
+blast_radius: read-only
+steps:
+- gh api repos/{o}/{r}/rulesets — list every ruleset, its target, enforcement state and bypass actors
+- 'Compare against the declared policy in stack/foundation: required status checks, no force-push, no
+  deletion on default'
+- 'Required checks vs actual workflows: a required check that no workflow produces is a permanent block
+  — name it'
+- 'Org level: gh api orgs/{org}/rulesets, member permissions, and which token holds which scope'
+- 'CODEOWNERS: exists, parses, and covers the paths that actually change'
+- Output drift as BLOCKING / WARNING / OK with the exact API field behind each
+hil_gates:
+- any ruleset write
+- any permission change
+deliverable: drift table + one issue per BLOCKING item
+acceptance:
+- every ruleset accounted for
+- no required check without a producer
+- bypass actors named explicitly
+estimated_calls: ~15 per org

@@ -1,0 +1,29 @@
+id: pr-machine
+version: 1
+title: PR machine — triage, review routing, merge-queue clearing
+when_to_use: Open PRs are accumulating, reviews are stale, or a merge queue is stuck.
+requires_grants:
+- repo (write)
+- workflow (read)
+blast_radius: pr-batch
+steps:
+- 'Inventory: gh pr list --state open --json number,title,isDraft,mergeable,mergeStateStatus,reviewDecision,updatedAt,headRefName,baseRefName'
+- 'Classify: READY (green + approved), BLOCKED (failing checks — name them), STALE (no activity >7d),
+  STACKED (base != main)'
+- 'For STACKED: verify each PR''s base still exists and is mergeable in order; never rebase a stack without
+  recording the previous heads'
+- 'For BLOCKED: quote the failing check and its log excerpt — do not summarise ''CI failed'''
+- 'Route reviews: gh pr edit --add-reviewer <owner from CODEOWNERS>, never @-mention a human without naming
+  why'
+- 'Merge only with: required checks green, review decision APPROVED, no unresolved threads, branch up
+  to date'
+hil_gates:
+- before merging anything not already approved
+- before closing a PR
+- before rebasing a stack
+deliverable: triage table by repo + per-PR action taken, posted as a comment on each PR
+acceptance:
+- no PR merged on a red or unapproved state
+- every BLOCKED PR names its failing check
+- stack order recorded
+estimated_calls: ~2 per PR

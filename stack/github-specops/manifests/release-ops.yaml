@@ -1,0 +1,28 @@
+id: release-ops
+version: 1
+title: Release ops — cut, document, verify a version
+when_to_use: A version is ready to ship, or a release exists with no notes.
+requires_grants:
+- repo (write)
+- workflow (read)
+blast_radius: mutation
+steps:
+- 'Establish the base: gh release list --limit 5 and the last tag''s commit; confirm the target commit
+  is on the default branch'
+- Derive the version from conventional commits since the last tag; state the rule used and the commits
+  that justify it
+- Generate notes grouped feat/fix/perf/security/docs, each line citing the commit sha
+- gh release create <tag> --draft --notes-file <file> --target <sha> — draft first, never straight to
+  published
+- 'Verify: tag exists on the right commit, assets attached, checks green on that sha'
+- 'Write the post-release row: what shipped, what to watch for 24h, the exact rollback command'
+hil_gates:
+- before publishing a draft
+- before deleting or moving a tag
+- before any rollback
+deliverable: draft release + notes file committed to the repo + a post-release record
+acceptance:
+- release points at a sha verified on main
+- notes cite shas
+- rollback command is copy-pasteable
+estimated_calls: ~10
