@@ -24,7 +24,7 @@ a human or `verify.sh` can run, and (c) the strongest counter-argument is record
 | E · Output & attention | R-14…R-16 | What does the human actually receive? |
 | F · Toolsets & plugins | R-17…R-20 | What may an agent do, and what may run in its process? |
 | G · Memory & knowledge | R-21…R-22 | What outlives the conversation? |
-| H · Legibility & posture | R-23…R-28 | Where does truth live, what may an agent refuse, and does the foundry stay up? |
+| H · Legibility & posture | R-23…R-29 | Where does truth live, what may an agent refuse, and does the foundry stay up? |
 
 ## Admission rule
 

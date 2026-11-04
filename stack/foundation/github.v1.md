@@ -48,3 +48,13 @@ Before any refusal: credential source × transport × scope, with the exact resp
 untested cell (a second account, an Actions token, a REST-vs-GraphQL alternative), the correct answer is
 "untested", not "impossible". This annex is the worked example: the only genuine wall found was one scope, and
 it was found by testing every other cell first.
+
+## Exit status is not evidence (measured 2026-11-04)
+
+`gh project item-add` returns **exit 0** in three different situations: the item was added; the item already
+existed (silent no-op that still prints the issue body); the item **did not land at all** — observed 4 times in
+13 calls. And the first read-back after a write can lag, producing a *false* failure.
+
+Correction (R-29, implemented in `stack/github-specops/tools/proj_sync.py`): assert the collection, not the exit
+code; read back with backoff; cross-check with a second transport before declaring drift; and prove the check can
+fail by running it against a phantom target.

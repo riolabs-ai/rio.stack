@@ -415,3 +415,20 @@ requirements:
     Redundant copies are resilience. Answer — only if rotation is automated across all copies.
   verdict: unverified
   check: manual
+- id: R-29
+  cluster: H
+  claim: >-
+    A mutation is complete only when the collection it changed reads back with the expected membership. Exit
+    status is not evidence.
+  served_by: [postcondition read-back, second-transport cross-check, negative controls]
+  observed_failure: >-
+    Four `gh project item-add` calls returned exit 0 without the item landing; a duplicate add also returns 0
+    as a silent no-op; and the first read-back after a write lags, producing a false FAIL.
+  adversarial_test: >-
+    Run every batch mutation against a phantom target (an item that cannot exist). The check must fail and
+    name it. Then run against the real target; it must pass. A check that cannot fail proves nothing.
+  strongest_objection: >-
+    Reading back every write doubles the API cost. Answer — the read is cheap next to the work lost to a false
+    success, and bulk reads batch into one call.
+  verdict: met
+  check: proj_sync.py::--check
