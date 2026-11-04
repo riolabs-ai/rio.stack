@@ -1,0 +1,321 @@
+# Foundation requirements v1 — machine-readable.
+# Schema per requirement: id, cluster, claim, served_by, observed_failure,
+#   adversarial_test, strongest_objection, verdict (met|partial|unmet), check
+version: 1
+layer: foundation
+updated: 2026-11-04
+requirements:
+- id: R-01
+  cluster: A
+  claim: >-
+    A profile is an isolation boundary — its own config, credentials, board, skills, memory and plugin set.
+  served_by: [hermes profiles, per-profile config.yaml, per-profile .env]
+  observed_failure: >-
+    A bot whose charter said 'you do not build product code' nonetheless held file, code_execution and terminal
+    toolsets, and wrote product files for days.
+  adversarial_test: >-
+    Ask two profiles for their effective config, toolsets and enabled plugins; any shared mutable surface beyond
+    deliberate inheritance (Hindsight bank) falsifies it.
+  strongest_objection: >-
+    Profiles share one OS user, one gateway process and one filesystem, so isolation is configuration and not a
+    security boundary. Answer — true, and the configuration half is exactly what was missing.
+  verdict: partial
+  check: manual
+- id: R-02
+  cluster: A
+  claim: >-
+    Every charter prohibition is backed by a mechanism; no prohibition exists only as prose.
+  served_by: [platform_toolsets, terminal.cwd, plugin allowlist, hooks]
+  observed_failure: >-
+    A SOUL said 'terminal.cwd stays ~/' while config pinned cwd to a non-repo parent; the config won silently
+    for days.
+  adversarial_test: >-
+    For each 'you must not / you do not' sentence in a charter, name the setting that enforces it. Any unmapped
+    action-prohibition fails.
+  strongest_objection: >-
+    Judgment, tone and escalation rules are inherently unenforceable and must stay prose. Answer — excluded from
+    this requirement; prohibitions on actions are not.
+  verdict: unmet
+  check: manual
+- id: R-03
+  cluster: A
+  claim: >-
+    An agent working directory is a git repository, or its home — never a parent of projects.
+  served_by: [terminal.cwd]
+  observed_failure: >-
+    cwd at a directory containing several projects: git failed 'not a git repository', worktrees landed at the
+    wrong level, and cwd-only AGENTS.md (34 KB of rules) never loaded.
+  adversarial_test: >-
+    For each profile resolve terminal.cwd; fail if it is neither inside a git repo nor $HOME.
+  strongest_objection: >-
+    Multi-repo workflows want one shared parent. Answer — pass absolute paths per command instead of living in
+    the parent.
+  verdict: met
+  check: verify.sh::cwd
+- id: R-04
+  cluster: B
+  claim: >-
+    Every profile holds its own credentials; nothing depends on inheriting the root environment.
+  served_by: [per-profile .env, one Secrets Manager project per profile]
+  observed_failure: >-
+    Profiles strip known root .env keys, so a key present at root was absent in the profile and failed only at
+    call time.
+  adversarial_test: >-
+    For each profile, make one live provider call using only that profile configuration.
+  strongest_objection: >-
+    Per-profile duplication invites drift. Answer — render from one secrets project per profile instead of hand-
+    copying.
+  verdict: partial
+  check: manual
+- id: R-05
+  cluster: B
+  claim: >-
+    No secret file on disk is group- or world-readable.
+  served_by: [file modes 600 files / 700 dirs]
+  observed_failure: >-
+    A credential file written by an agent sat at mode 664 in a non-repo directory for a day.
+  adversarial_test: >-
+    Scan known secret paths for permission bits beyond 600 files and 700 directories.
+  strongest_objection: >-
+    A single-user laptop has no other users to protect against. Answer — group access and backups are exposure
+    enough, and mode costs nothing.
+  verdict: met
+  check: verify.sh::perms
+- id: R-06
+  cluster: B
+  claim: >-
+    Secrets survive losing the machine, and the decryption key is never stored beside the ciphertext.
+  served_by: [encrypted snapshot job, off-machine key custody]
+  observed_failure: >-
+    Secrets existed only in per-profile .env files and one OAuth token file on a single disk.
+  adversarial_test: >-
+    Delete the machine. Can the last snapshot be decrypted from what exists off-box?
+  strongest_objection: >-
+    Bitwarden is already an off-box store, making local snapshots redundant. Answer — only once rendering from
+    Bitwarden is automated; until then the snapshot is the fallback.
+  verdict: partial
+  check: verify.sh::backup
+- id: R-07
+  cluster: C
+  claim: >-
+    The board, not the chat, is the authoritative record of what is in flight.
+  served_by: [kanban board per client, card body as spec]
+  observed_failure: >-
+    Work state was reconstructed from chat scrollback, and two finished cards were reported as failures.
+  adversarial_test: >-
+    Answer 'what is in flight' using only the board. Anything that exists only in chat fails.
+  strongest_objection: >-
+    Boards add ceremony for small tasks. Answer — the ceremony is the evidence trail that survives a crash.
+  verdict: partial
+  check: manual
+- id: R-08
+  cluster: C
+  claim: >-
+    A card that can push carries a completion contract, and completion is refused when it fails.
+  served_by: [completion_contract, acceptance at completion]
+  observed_failure: >-
+    Cards committed without pushing and were reported complete; a human, not a gate, caught it.
+  adversarial_test: >-
+    Complete a push-bearing card whose branch was never pushed; completion must be refused.
+  strongest_objection: >-
+    Contracts cost a keystroke each and default wrongly (local-only). Answer — require them explicitly and make
+    local-only an announced choice.
+  verdict: partial
+  check: manual
+- id: R-09
+  cluster: C
+  claim: >-
+    Blocking a card stops the work; a block is a stop, not a note.
+  served_by: [kanban_block signalling the bound worker]
+  observed_failure: >-
+    A blocked card agent kept editing for 23 more minutes until it exhausted its iteration budget.
+  adversarial_test: >-
+    Block a running card; the bound pid must stop within one heartbeat.
+  strongest_objection: >-
+    Stopping mid-write can corrupt a tree. Answer — stop between tool calls, after preserving the worktree.
+  verdict: unmet
+  check: manual
+- id: R-10
+  cluster: C
+  claim: >-
+    A workspace and branch are claimed by exactly one card at a time.
+  served_by: [claim registry at dispatch]
+  observed_failure: >-
+    Two cards were handed one branch; only the git one-worktree rule noticed, at fetch time, after both had done
+    work.
+  adversarial_test: >-
+    Create two cards on one branch; the second is refused with a named reason and stays ready.
+  strongest_objection: >-
+    Serialising on branches reduces parallelism. Answer — refusal is per branch, not per card.
+  verdict: unmet
+  check: manual
+- id: R-11
+  cluster: D
+  claim: >-
+    A planned restart interrupts work; it never counts as a failure or consumes a retry.
+  served_by: [interrupted outcome, reclaim at boot]
+  observed_failure: >-
+    A gateway restart SIGINTed two cards at exit 130, both booked crashed, and the retry limit made them
+    terminal on one lifecycle event.
+  adversarial_test: >-
+    Restart the gateway with cards in flight; every card returns to ready with zero failure charge.
+  strongest_objection: >-
+    Not every SIGINT is planned. Answer — the gateway knows why it interrupted and should say so rather than let
+    the dispatcher infer from an exit code.
+  verdict: unmet
+  check: manual
+- id: R-12
+  cluster: D
+  claim: >-
+    Work in flight is recoverable without a human noticing it was lost.
+  served_by: [durable worktree naming, early commits, read-only snapshots]
+  observed_failure: >-
+    39 minutes of uncommitted work survived only because a human opened the worktree before trusting a 'crashed'
+    status; a sibling card worktree had already been pruned.
+  adversarial_test: >-
+    Kill a worker mid-run; can its tree be reconstructed from committed state or a snapshot without archaeology?
+  strongest_objection: >-
+    Committing constantly pollutes history. Answer — WIP commits on a card branch are cheap and lost work is
+    not.
+  verdict: partial
+  check: verify.sh::snapshots
+- id: R-13
+  cluster: D
+  claim: >-
+    Settings take effect without the operation that destroys work.
+  served_by: [re-read settings between ticks, logged resolution]
+  observed_failure: >-
+    A concurrency cap could only be applied by restarting the gateway, the same act that killed in-flight cards,
+    so it stayed wrong for hours.
+  adversarial_test: >-
+    Change a dispatcher setting; it applies within one tick with a log line and no restart.
+  strongest_objection: >-
+    Some settings are snapshotted deliberately for determinism. Answer — true per-turn, not for scheduling caps.
+  verdict: unmet
+  check: manual
+- id: R-14
+  cluster: E
+  claim: >-
+    Reply size is set by the reader job, with a 500-word ceiling in chat and the body in an artifact.
+  served_by: [output contract in every profile SOUL]
+  observed_failure: >-
+    Replies ran roughly five times the reader capacity, burying decisions in prose.
+  adversarial_test: >-
+    Sample ten replies and count words; any reply over 500 words that is not an artifact-wrapped summary fails.
+  strongest_objection: >-
+    Some answers genuinely need length. Answer — they need an artifact, not a longer message.
+  verdict: met
+  check: manual
+- id: R-15
+  cluster: E
+  claim: >-
+    Structure before prose — tables, call-outs, reveals — and the finding leads.
+  served_by: [output contract, rich cards]
+  observed_failure: >-
+    Chronological narration put the conclusion last and the process first.
+  adversarial_test: >-
+    Delete a reply first paragraph; if the reader can still act, it led correctly.
+  strongest_objection: >-
+    Narrative teaching sometimes needs sequence. Answer — sequence belongs in the artifact.
+  verdict: partial
+  check: manual
+- id: R-16
+  cluster: E
+  claim: >-
+    Load-bearing claims carry evidence (path, line, number); unverifiable claims are labelled.
+  served_by: [verification discipline, evidence tables]
+  observed_failure: >-
+    Plugin maintenance status was asserted without a source, and a self-reported fix was believed before being
+    re-read.
+  adversarial_test: >-
+    For each load-bearing claim ask what command produced it. No answer means it is not a claim.
+  strongest_objection: >-
+    Requiring evidence for everything stalls small answers. Answer — the requirement covers load-bearing claims
+    only.
+  verdict: partial
+  check: manual
+- id: R-17
+  cluster: F
+  claim: >-
+    Toolsets match the role; a role that must not write code does not hold write tools.
+  served_by: [platform_toolsets per profile]
+  observed_failure: >-
+    An orchestrator held file and code_execution tools, and used them.
+  adversarial_test: >-
+    Diff each profile toolsets against its charter prohibitions.
+  strongest_objection: >-
+    An orchestrator needs file tools to read its own queue. Answer — a read-only toolset, bounded by cwd and
+    contract.
+  verdict: unmet
+  check: verify.sh::toolsets
+- id: R-18
+  cluster: F
+  claim: >-
+    No plugin is admitted without a mapped requirement and a verified load.
+  served_by: [plugin allowlist, admission rule in this layer]
+  observed_failure: >-
+    24 plugins accumulated, several overlapping (three board UIs, two memory backends), none mapped to a
+    requirement.
+  adversarial_test: >-
+    For each enabled plugin, name the requirement it serves and show it loads. Unmapped or unloaded means not
+    admitted.
+  strongest_objection: >-
+    Exploration requires trying things. Answer — try in a scratch profile, admit on evidence.
+  verdict: unmet
+  check: verify.sh::plugins
+- id: R-19
+  cluster: F
+  claim: >-
+    A supervisory plugin never overrides a session it cannot observe.
+  served_by: [per-module switches, profile-scoped plugin config]
+  observed_failure: >-
+    A completion guard asserted 'no mutation was attempted' on a turn that patched files and created an issue,
+    because its predicate counted only paths named in the request.
+  adversarial_test: >-
+    Run a turn whose deliverables sit outside any task workspace; the guard must not block it.
+  strongest_objection: >-
+    A guard with exceptions is not a guard. Answer — it must be scoped to sessions with a bound card, the
+    contract it claims to enforce.
+  verdict: partial
+  check: manual
+- id: R-20
+  cluster: F
+  claim: >-
+    Provider fallbacks are real, proven by a live call rather than by configuration presence.
+  served_by: [fallback_providers, live probe]
+  observed_failure: >-
+    A fallback chain was reported connected from a probe that read the root .env, proving a key in a context
+    that was not doing the work.
+  adversarial_test: >-
+    Force the primary to fail; the fallback answers with a pinned model.
+  strongest_objection: >-
+    Live probes are slow and cost tokens. Answer — run once at admission, then on change.
+  verdict: partial
+  check: manual
+- id: R-21
+  cluster: G
+  claim: >-
+    Memory is scoped so one client context cannot leak into another.
+  served_by: [per-profile memory, bank policy]
+  observed_failure: >-
+    Cross-profile lessons were lost while bank-wide recall could surface one client facts inside another
+    session.
+  adversarial_test: >-
+    Ask profile A a question answered only in profile B memory; A must not answer.
+  strongest_objection: >-
+    Shared recall is the point of a bank. Answer — shared methods yes, shared client facts no.
+  verdict: partial
+  check: manual
+- id: R-22
+  cluster: G
+  claim: >-
+    Anything that must outlive a session is written to a durable artifact, not left in chat.
+  served_by: [knowledge base, requirements layer, decision log]
+  observed_failure: >-
+    The same diagnosis was repeated across sessions because the conclusion lived only in a conversation.
+  adversarial_test: >-
+    Start a fresh session; is the lesson discoverable without searching transcripts?
+  strongest_objection: >-
+    Writing everything down is overhead. Answer — only decisions and diagnoses, not chat.
+  verdict: partial
+  check: manual

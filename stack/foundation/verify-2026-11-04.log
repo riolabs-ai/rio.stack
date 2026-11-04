@@ -1,0 +1,51 @@
+foundation verify — 2026-11-04T14:07:57-03:00
+hermes home: /home/jadenblack/.hermes
+
+R-03  working directory
+  PASS  R-03   default cwd = HOME (neutral)
+  PASS  R-03   rio cwd = HOME (neutral)
+  PASS  R-03   infra cwd = HOME (neutral)
+  PASS  R-03   blueberry cwd = HOME (neutral)
+  FAIL  R-03   rory cwd is neither a repo nor HOME: /home/jadenblack/Desktop/dev.local/roryskagenart
+
+R-05  secret file modes
+  PASS  R-05   all secret files 600, secret dirs 700
+
+R-06  sealed backup
+  PASS  R-06   key mode 600
+  PASS  R-06   3 encrypted snapshot(s)
+  PASS  R-06   private key absent from newest snapshot
+  PASS  R-06   timer active (next: Thu 2026-11-05 03:23:01 -03)
+
+R-12  durable worktree naming
+  WARN  R-12   49/114 worktrees do NOT match t_<hex> (prune-exposed history)
+
+R-17  toolsets present
+  PASS  R-17   default -> 56 toolset(s)
+  PASS  R-17   rio -> 36 toolset(s)
+  PASS  R-17   infra -> 56 toolset(s)
+  PASS  R-17   blueberry -> 40 toolset(s)
+  PASS  R-17   rory -> 18 toolset(s)
+
+R-18  plugin resolution
+  PASS  R-18   every enabled plugin name resolves to a real plugin dir
+
+Manual / observational (not machine-checkable here):
+  R-01   profile isolation — diff effective config per profile
+  R-02   charter prohibitions mapped to mechanisms
+  R-04   per-profile live provider call
+  R-07   board as sole source of in-flight truth
+  R-08   completion refused when contract fails
+  R-09   block stops the bound worker
+  R-10   branch claimed by one card
+  R-11   restart counts as interrupted, not failed
+  R-13   settings apply without restart
+  R-14   reply under 500 words or artifact-wrapped
+  R-15   finding leads the reply
+  R-16   load-bearing claims carry evidence
+  R-19   guard never blocks a session it cannot observe
+  R-20   fallback proven by live call
+  R-21   client memory does not leak across profiles
+  R-22   durable artifact for every lesson
+
+RESULT: fail — 1 enforced failure(s): R-03
