@@ -96,6 +96,18 @@ else
   warn R-12 "no worktree root at $wtroot"
 fi
 
+# ── R-30 · every config file parses (silent-default mode is a total failure) ──
+echo; echo "R-30  config validity"
+for p in "${PROFILES[@]}"; do
+  [ -d "$HERMES_HOME/profiles/$p" ] || [ "$p" = default ] || continue
+  out=$(hcfg "$p" _config_version 2>&1; hermes ${p:+$([ "$p" = default ] || echo "-p $p")} config check 2>&1)
+  if echo "$out" | grep -qiE "formatting error|invalid YAML|not valid YAML"; then
+    bad R-30 "$p config does not parse — that profile is running on defaults"
+  else
+    pass R-30 "$p config parses"
+  fi
+done
+
 # ── R-17 · toolsets resolve per profile ──────────────────────────────────────
 echo; echo "R-17  toolsets present"
 for p in "${PROFILES[@]}"; do

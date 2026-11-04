@@ -432,3 +432,20 @@ requirements:
     success, and bulk reads batch into one call.
   verdict: met
   check: proj_sync.py::--check
+- id: R-30
+  cluster: H
+  claim: >-
+    Every config file parses, asserted mechanically — a broken config silently disables every setting without
+    stopping the agent.
+  served_by: [config parse assertion in verify.sh, automatic good/corrupt snapshots in ~/.hermes/backups/config/]
+  observed_failure: >-
+    Root config.yaml was invalid from 17:15; Hermes logged one warning and ran on default settings, so
+    concurrency, drain and the plugin allowlist were all inert while the agent still answered normally.
+  adversarial_test: >-
+    Corrupt a profile config deliberately; verify.sh must fail and name the profile. Recovery must use the
+    sanctioned snapshot path, never a hand edit.
+  strongest_objection: >-
+    Hermes already warns loudly. Answer — it warns once into a boot log, and the chat surface keeps working,
+    so the failure is invisible where the work happens.
+  verdict: met
+  check: verify.sh::R-30
