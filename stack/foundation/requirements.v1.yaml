@@ -449,3 +449,20 @@ requirements:
     so the failure is invisible where the work happens.
   verdict: met
   check: verify.sh::R-30
+- id: R-31
+  cluster: F
+  claim: >-
+    Each plugin name resolves from exactly one source; two sources with the same package name break the
+    dependency lock and silently block every plugin enable.
+  served_by: [single-source rule (user-level ~/.hermes/plugins or one profile dir, never both), verify.sh check]
+  observed_failure: >-
+    hermes-project-stewardship existed in both the user plugins dir and rio, so uv refused the lock with "Two
+    workspace members are both named ..." and every enable of that plugin failed.
+  adversarial_test: >-
+    List plugin names in the user dir and every profile dir; any intersection must fail the check. Then enable
+    a plugin and require the dependency install to succeed.
+  strongest_objection: >-
+    Profile-local copies allow per-profile versions. Answer — allowed only when the name is absent from the
+    user dir; a shadow copy is never intentional.
+  verdict: met
+  check: verify.sh::R-31

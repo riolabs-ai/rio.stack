@@ -96,6 +96,25 @@ else
   warn R-12 "no worktree root at $wtroot"
 fi
 
+# ── R-31 · each plugin name resolves from exactly one source ──
+echo; echo "R-31  plugin source uniqueness"
+dups=$(python3 - "$HERMES_HOME" <<'PY'
+import glob, os, sys
+home = sys.argv[1]
+user = {os.path.basename(p) for p in glob.glob(os.path.join(home, "plugins", "*")) if os.path.isdir(p)}
+out = []
+for p in glob.glob(os.path.join(home, "profiles", "*", "plugins", "*")):
+    if os.path.isdir(p) and os.path.basename(p) in user:
+        out.append(f"{os.path.basename(p)}@{p.split('/profiles/')[1].split('/')[0]}")
+print("\n".join(out))
+PY
+)
+if [ -z "$dups" ]; then
+  pass R-31 "no plugin name resolves from two sources"
+else
+  bad R-31 "$(echo "$dups" | wc -l) plugin(s) resolve from both user-level and a profile: $(echo "$dups" | head -3 | tr '\n' ' ')"
+fi
+
 # ── R-30 · every config file parses (silent-default mode is a total failure) ──
 echo; echo "R-30  config validity"
 for p in "${PROFILES[@]}"; do
