@@ -1,0 +1,63 @@
+name: ASE triage (one run)
+description: The five answers an ASE needs before it acts. Produces an executable ticket.
+title: "[ASE] <manifest> — <owner/org>"
+labels: ["ase", "p1"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Answer all five. ASE does not ask follow-up questions when these are filled in.
+  - type: input
+    id: owner
+    attributes:
+      label: Owner / org
+      placeholder: riolabs-ai
+    validations: {required: true}
+  - type: textarea
+    id: repos
+    attributes:
+      label: Repos in scope
+      description: Explicit list, or one discovery query ASE should run and confirm first.
+      placeholder: all private repos in riolabs-ai (agent runs discovery)
+    validations: {required: true}
+  - type: dropdown
+    id: manifest
+    attributes:
+      label: Manifest
+      options:
+        - repo-custodian
+        - pr-machine
+        - release-ops
+        - ruleset-gauntlet
+        - foundry-onboarding
+    validations: {required: true}
+  - type: dropdown
+    id: blast
+    attributes:
+      label: Blast radius
+      options:
+        - read-only sweep
+        - proposed PR batch
+        - direct mutation
+    validations: {required: true}
+  - type: checkboxes
+    id: grants
+    attributes:
+      label: Grants available
+      options:
+        - label: repo
+        - label: workflow
+        - label: read:org
+        - label: project + read:project
+        - label: org admin
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance — what "done" means for this run, one sentence
+    validations: {required: true}
+  - type: dropdown
+    id: lands
+    attributes:
+      label: Where the result lands
+      options: [issue, pull request, project item, doc in repo]
+    validations: {required: true}

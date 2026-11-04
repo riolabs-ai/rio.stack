@@ -1,0 +1,66 @@
+name: ASE onboarding (new entity)
+description: Onboard a product, client, campaign or service domain under an ASE.
+title: "[ONBOARD] <entity> — <ase>"
+labels: ["ase", "p0"]
+body:
+  - type: input
+    id: entity
+    attributes:
+      label: Entity name
+      placeholder: alignsynch
+    validations: {required: true}
+  - type: dropdown
+    id: ase
+    attributes:
+      label: Owning ASE
+      options:
+        - ase-github
+        - ase-vercel
+        - ase-resend
+        - ase-cloudflare
+        - ase-google
+        - ase-google-workspace
+        - ase-neon
+        - ase-sentry
+        - ase-stripe
+        - ase-paperclip
+        - ase-opendesign
+        - ase-openseo
+        - ase-hermes
+        - ase-infra
+    validations: {required: true}
+  - type: dropdown
+    id: boundary
+    attributes:
+      label: Does this entity get its own profile?
+      description: Only yes if it has its own credentials, board, audience or role. Otherwise it is a collection.
+      options:
+        - "no — collection / project only"
+        - "yes — separate credentials"
+        - "yes — separate audience"
+        - "yes — separate board"
+    validations: {required: true}
+  - type: checkboxes
+    id: services
+    attributes:
+      label: Services to wire
+      options:
+        - label: GitHub repo + rulesets
+        - label: Vercel project + env
+        - label: Neon branch
+        - label: Sentry project
+        - label: Resend domain
+        - label: Cloudflare DNS
+        - label: Google Workspace group
+  - type: input
+    id: secrets
+    attributes:
+      label: Secrets home (BWS account + project)
+      placeholder: bw-riolabs / proj-alignsynch
+    validations: {required: true}
+  - type: textarea
+    id: done
+    attributes:
+      label: Done when
+      description: Must include "verify.sh exits 0" and one live check per service.
+    validations: {required: true}
