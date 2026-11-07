@@ -96,23 +96,47 @@ else
   warn R-12 "no worktree root at $wtroot"
 fi
 
-# ── R-31 · each plugin name resolves from exactly one source ──
+# ── R-31 · one source per plugin name (fleet-wide; upstream #150414) ──
+# PM stages every source dir into ONE uv workspace. Only plugins that ship a pyproject
+# become workspace members, so only those can collide. Predicate:
+#   enabled anywhere AND (name present with a pyproject in more than one source dir)
 echo; echo "R-31  plugin source uniqueness"
 dups=$(python3 - "$HERMES_HOME" <<'PY'
-import glob, os, sys
+import glob, os, sys, yaml
 home = sys.argv[1]
-user = {os.path.basename(p) for p in glob.glob(os.path.join(home, "plugins", "*")) if os.path.isdir(p)}
-out = []
-for p in glob.glob(os.path.join(home, "profiles", "*", "plugins", "*")):
-    if os.path.isdir(p) and os.path.basename(p) in user:
-        out.append(f"{os.path.basename(p)}@{p.split('/profiles/')[1].split('/')[0]}")
-print("\n".join(out))
+def has_py(d):
+    return os.path.exists(os.path.join(d, "pyproject.toml"))
+src = {"<user>": [p for p in glob.glob(f"{home}/plugins/*") if os.path.isdir(p) and has_py(p)]}
+for d in glob.glob(f"{home}/profiles/*/plugins/*"):
+    if os.path.isdir(d) and has_py(d):
+        src.setdefault(d.split("/profiles/")[1].split("/")[0], []).append(d)
+enabled = {}
+try:
+    root = yaml.safe_load(open(f"{home}/config.yaml")) or {}
+    enabled["<default>"] = (root.get("plugins") or {}).get("enabled") or []
+except Exception:
+    pass
+for cfg in glob.glob(f"{home}/profiles/*/config.yaml"):
+    prof = cfg.split("/profiles/")[1].split("/")[0]
+    try:
+        doc = yaml.safe_load(open(cfg)) or {}
+    except Exception:
+        continue
+    enabled[prof] = (doc.get("plugins") or {}).get("enabled") or []
+owner = {}
+for prof, names in enabled.items():
+    for n in names:
+        owner.setdefault(n, []).append(prof)
+for name, profs in owner.items():
+    dirs = [k for k, v in src.items() if any(os.path.basename(d) == name for d in v)]
+    if len(dirs) > 1:
+        print(f"{name}: {'+'.join(dirs)} (enabled in {','.join(profs)})")
 PY
 )
 if [ -z "$dups" ]; then
-  pass R-31 "no plugin name resolves from two sources"
+  pass R-31 "every enabled python plugin resolves from one source dir"
 else
-  bad R-31 "$(echo "$dups" | wc -l) plugin(s) resolve from both user-level and a profile: $(echo "$dups" | head -3 | tr '\n' ' ')"
+  bad R-31 "$(echo "$dups" | wc -l) enabled python plugin(s) staged from >1 source: $(echo "$dups" | head -3 | tr '\n' ' ')"
 fi
 
 # ── R-30 · every config file parses (silent-default mode is a total failure) ──

@@ -452,17 +452,22 @@ requirements:
 - id: R-31
   cluster: F
   claim: >-
-    Each plugin name resolves from exactly one source; two sources with the same package name break the
-    dependency lock and silently block every plugin enable.
+    Each plugin name resolves from exactly one source FLEET-WIDE — the user plugins dir or exactly one
+    profile dir, never two dirs in any combination. PM stages every profile's plugin dir into one shared uv
+    workspace, so the collision is not limited to user-level vs profile.
   served_by: [single-source rule (user-level ~/.hermes/plugins or one profile dir, never both), verify.sh check]
   observed_failure: >-
-    hermes-project-stewardship existed in both the user plugins dir and rio, so uv refused the lock with "Two
-    workspace members are both named ..." and every enable of that plugin failed.
+    hermes-project-stewardship failed the uv lock with "Two workspace members are both named ..." three times
+    in 2.5 h: user-level + rio (87fb118d/ecffb56c), user-level + alignsynch (8c8aadb3/ecffb56c), and
+    alignsynch + rio (8c8aadb3/87fb118d) with NO user-level copy present. The third proves the scope is
+    fleet-wide, not user-vs-profile. Upstream defect #150414 (NousResearch/hermes-agent).
   adversarial_test: >-
-    List plugin names in the user dir and every profile dir; any intersection must fail the check. Then enable
-    a plugin and require the dependency install to succeed.
+    Take every dir under plugins/ and profiles/*/plugins/, pair them up, and fail on any repeated basename.
+    The pairwise form is required: three of the three observed failures involved at least one profile dir.
   strongest_objection: >-
-    Profile-local copies allow per-profile versions. Answer — allowed only when the name is absent from the
-    user dir; a shadow copy is never intentional.
+    Profile-local copies allow per-profile versions. Answer — they do not: two profile copies of the same
+    package name fail the same lock, so per-profile versions are impossible today (#150414). A plugin that is
+    designed to be per-profile, such as hermes-project-stewardship, can therefore be enabled on exactly one
+    profile until the staging workspace is scoped per profile or keyed by package name.
   verdict: met
   check: verify.sh::R-31
