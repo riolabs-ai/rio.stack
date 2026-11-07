@@ -471,3 +471,82 @@ requirements:
     profile until the staging workspace is scoped per profile or keyed by package name.
   verdict: met
   check: verify.sh::R-31
+
+- id: R-32
+  cluster: G
+  claim: >-
+    Every provider integration has a versioned, secret-free desired-state file plus an idempotent reconciler
+    and a drift check that asserts the postcondition over the live API. A provider configured only through a
+    dashboard is not integrated, it is undocumented.
+  served_by: [stack/providers/<name>/desired.yaml, apply.py, verify.py, generated STATUS.md]
+  observed_failure: >-
+    Measured 2026-11-07: Vercel carries a two-key vercel.json (only $schema and an ignoreCommand) while its
+    environment variables, domains and protection settings live in the dashboard; Resend has a verified domain
+    plus three API keys with no rotation metadata and nothing in code. Versionable scored 2 and 1 out of 10.
+  adversarial_test: >-
+    Delete one non-critical setting through the provider API, run verify.py, and require exit 1 naming the
+    drifted setting. Then re-run apply.py and require verify.py exit 0. A checker that cannot fail is not a
+    checker.
+  strongest_objection: >-
+    Adopting config-as-code costs a day per provider and most settings never change. Answer — the cost is paid
+    once and the alternative is already failing: production holds Stripe TEST keys and nobody noticed because
+    nothing compares desired state to actual state.
+  verdict: open
+  check: pending (no verify.py yet)
+- id: R-33
+  cluster: G
+  claim: >-
+    Each provider documents every available channel - docs, guides, SDK, CLI, MCP, raw API, skill, example -
+    with an explicit "use when", so an agent chooses a channel by rule rather than by habit. A channel with no
+    trigger is treated as unintegrated.
+  served_by: [stack/providers/README.md capability matrix, one provider README per integration]
+  observed_failure: >-
+    The alignsynch profile held five MCP servers by default, three of them unauthenticated, totalling roughly
+    150 tool definitions before any work began; neon alone exposed ~144 tools when 12 read-only ones were all
+    the orchestrator needed. No document said which channel to use for what.
+  adversarial_test: >-
+    Pick any provider channel and ask an agent why it chose it. If the answer is not a line in the matrix, the
+    matrix is incomplete. Also count tool definitions loaded per profile and require it below the declared
+    budget.
+  strongest_objection: >-
+    More channels is strictly better capability. Answer - no: an unused authenticated channel is cost (schema
+    tokens, selection error, blast radius) without benefit, and this was measured at ~150 tools on a profile
+    whose job is orchestration.
+  verdict: open
+  check: pending
+- id: R-34
+  cluster: G
+  claim: >-
+    Every provider action carries a permission tier - T0 read-only, T1 scoped/sandbox write, T2 production
+    write - and T2 requires an explicit per-assignment grant recorded on the card plus a log of the action.
+    Tier is never inherited from a role, an MCP connection, or an already-authenticated CLI.
+  served_by: [tier column in each provider README, grant recorded on the kanban card, action log]
+  observed_failure: >-
+    An orchestrator profile was connected to Stripe, Resend and Vercel write surfaces by default. Stripe can
+    create charges and Resend can email a real customer; neither was gated by anything but good intentions.
+  adversarial_test: >-
+    Attempt a T2 action without a grant and require a refusal that names the missing grant. Then grant it,
+    repeat, and require the action to be logged with actor, target and result.
+  strongest_objection: >-
+    Read-only everywhere slows real work. Answer - read-only is the default without a special assignment,
+    which is exactly the ask: elevation is a decision someone records, not a property a profile happens to
+    have.
+  verdict: open
+  check: pending
+- id: R-35
+  cluster: G
+  claim: >-
+    Hermes-global provider work lives on the `hermes` board, not on a client board, and cards are created with
+    an explicit status so the dispatcher never invents triage or scheduling for programme work.
+  served_by: [kanban board `hermes`, cards created blocked until an owner unblocks them]
+  observed_failure: >-
+    Provider capability gaps were being raised inside the alignsynch profile's board, mixing fleet
+    infrastructure with client delivery and making neither schedulable on its own terms.
+  adversarial_test: >-
+    List every board and require that no card describing fleet/provider/Hermes infrastructure carries a
+    client board id. Then require that no card on the `hermes` board is in `triage`.
+  strongest_objection: >-
+    One board is simpler than six. Answer - boards are isolated queues by design (separate DB, workspace dir
+    and dispatcher loop); mixing scopes is what made client work and fleet work compete for the same slots.
+  verdict: met
+  check: hermes board exists; programme cards created blocked
