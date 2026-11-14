@@ -2,7 +2,8 @@
 #
 #   install a new profile :  hermes profile install stack/bot-profile/profile
 #   update an installed one: hermes profile update <name>      (user data preserved)
-#   the persona half       :  see bot/botforge-template.json + import_agent
+#   the persona half       :  profile/SOUL.md is the only copy; render it into the bot template
+#                             with render-bot.sh, then import_agent that rendered file
 #
 # Hermes creates the profile home, applies config.yaml, and records what this
 # distribution owns so `update` can refresh it later without touching user data.

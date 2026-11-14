@@ -24,6 +24,15 @@ pinned:
     carries: [persona, own memory, toolsets, skill choices, routines]
     never_carries: [chat history, work journal, facts about the user, api keys or logins]
 
+  # The persona. One source: `profile/SOUL.md`. The bot template carries `soul_md_ref` and
+  # `render-bot.sh` inlines the document at import time, so there is no second copy to drift.
+  # This digest is therefore the only thing an edit can break — verify.sh compares the WHOLE file
+  # against it, so changing line 20 fails exactly like changing line 1. Editing the persona is
+  # allowed; re-pin here in the same commit so the change is deliberate.
+  persona:
+    file: profile/SOUL.md
+    sha256: 84f222720b45cc65dc5035a2964c73c43060fecddf6d860fb87688f3db03a18f
+
   # The profile half. Two install paths over the same files:
   #   new profile      → `hermes profile install profile/` (generated from distribution.yaml)
   #   existing profile → `install.sh` merges these keys; it never overwrites a set value.

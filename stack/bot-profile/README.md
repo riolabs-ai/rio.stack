@@ -11,12 +11,14 @@ behaves — measured on a live install, not aspirational. Where a value is a pla
 
 | Battery | Where | Why it is in the box |
 | --- | --- | --- |
-| Persona + one job | `bot/botforge-template.json` (`soul_md`) | a bot with two jobs routes badly |
+| Persona + one job | `profile/SOUL.md` — the only copy | a bot with two jobs routes badly |
+| Persona reference | `bot/botforge-template.json` (`soul_md_ref`) | the bot half points at the one persona instead of carrying a second copy that drifts |
+| Renderer | `render-bot.sh` | inlines the persona into an import-ready template; a bare template file would import a generic one |
 | Toolset ceiling | `bot/botforge-template.json` (`toolsets`) | kanban routing + delegation + files + shell; nothing decorative |
 | Starter memory | `bot/botforge-template.json` (`memory`) | the five facts that stop a new lead re-learning them the hard way |
 | One routine | `bot/botforge-template.json` (`routines`) | a daily board triage that reports only what changed |
 | Profile config | `profile/config.yaml` | kanban ceilings, approvals, memory, toolsets — the wiring a persona cannot carry |
-| Doctrine | `profile/SOUL.md` | the lead's operating rules, written as rules with a record |
+| Doctrine | `profile/SOUL.md` | the lead's operating rules, written as rules with a record — one source, asserted as a whole document |
 | Kanban conventions | `docs/kanban-conventions.md` | card shapes, completion contracts, workspace and block discipline |
 | Env template | `profile/.env.example` | names only. **Never a value.** |
 | Checks | `verify.sh` | parses every file, refuses secrets, refuses un-replaced placeholders |
@@ -72,18 +74,36 @@ bash stack/bot-profile/install.sh --profile <profile> --apply  # writes it
 
 `install.sh` never overwrites a value that is already set: it prints a per-key decision
 (`set` / `keep` / `conflict`) and stops on `conflict` unless `--force`. Kanban ceilings are the one
-place a stale value is dangerous, so they are reported in full. This is the path for a live profile —
-`hermes profile update --force-config` would clobber it instead of merging.
+place a stale value is dangerous, so they are reported in full. `--apply` also refuses while a
+`{{PLACEHOLDER}}` survives in a file it would write — a bot that introduces itself as `{{BOT_NAME}}` is
+worse than a dry run; `--allow-placeholders` overrides, and says so. This is the path for a live
+profile — `hermes profile update --force-config` would clobber it instead of merging.
 
 ### C. Persona only
 
 ```bash
-import_agent path=stack/bot-profile/bot/botforge-template.json display_name="<Name>"
+bash stack/bot-profile/render-bot.sh > /tmp/lead.botforge.json
+import_agent path=/tmp/lead.botforge.json display_name="<Name>"
 ```
 
 `import_agent` builds the profile fresh, scans the template for secrets, and opens the bot's chat with
-its own introduction. Read the template's `soul_md` and `routines` before importing someone else's —
-they are the bot's instructions and it will follow them.
+its own introduction. Read the persona (`profile/SOUL.md`) and the routines before importing someone
+else's — they are the bot's instructions and it will follow them.
+
+**Render first, never import the bare template file.** `bot-forge` falls back to `render_soul()` when
+`soul_md` is absent, which produces a generic persona and reports no error at all. `render-bot.sh`
+inlines `profile/SOUL.md` byte-for-byte, so the bot you import is the one written here.
+
+## The persona has exactly one source
+
+`profile/SOUL.md` is it. The bot template carries `soul_md_ref: ../profile/SOUL.md` and no body, so
+there is no second copy that can drift; `verify.sh` fails if either half grows one back. Import is a
+render step, not a file you hand-edit.
+
+The whole document is pinned: `template-v1.lock.yaml` carries `sha256` of `profile/SOUL.md`, and the
+verifier compares the file against it byte-for-byte. Editing the persona is expected — but edit and
+re-pin in the same commit, or `verify.sh` fails on whichever line you touched (line 60 as surely as
+line 1). That is the point of the pin: a persona change is a deliberate change, never a silent one.
 
 
 ## The one thing to know before you change a ceiling
@@ -104,5 +124,15 @@ grep "kanban dispatcher: max_spawn" ~/.hermes/logs/gateway.log | tail -1
 bash stack/bot-profile/verify.sh          # parses, scans, and checks the contracts
 bash stack/bot-profile/verify.sh --strict # also refuses any un-replaced {{PLACEHOLDER}}
 ```
+
+What `verify.sh` actually asserts, beyond "the files parse":
+
+- **The persona, as a whole document.** `render-bot.sh` must resolve `soul_md_ref` to
+  `profile/SOUL.md`; the rendered `soul_md` must equal the file byte-for-byte; the body must exist in
+  exactly one file; and its `sha256` must match the pin. Any edited line fails, not just line 1.
+- **The lock is enforced, not decorative.** A wrong toolset or routine count, a stale `one_job`, a
+  bogus key in `pinned.profile.keys`, a config key the lock does not name, or a distribution version
+  that disagrees with the lock is a FAIL.
+- **No secrets and no machine specifics** — shapes only, so a real key cannot slip in with a template.
 
 A layer that cannot pass its own `verify.sh` is not a template, it is a wish.
