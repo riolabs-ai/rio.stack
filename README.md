@@ -33,3 +33,14 @@ sorry for the complex direction, but just parse each sentence/topic into issues 
 big issues with 1000 hours work and files on disks and computers and cloud. ~/rio.xps, ~rio.blacktop, github, and rio-labs.ai google drive
 
 Please issue these as best as possible and help with plugin, and more hermes reset
+
+## Stack layers
+
+| Layer | What it is | Verify |
+| --- | --- | --- |
+| [`stack/bot-profile/`](stack/bot-profile/) | **Bot & Profile template v1** — an importable, batteries-included Hermes bot (persona, toolset ceiling, starter memory, one routine) plus the profile config that makes it run a project team on native Kanban. No secrets, no chat history, no client specifics. | `bash stack/bot-profile/verify.sh` |
+| [`stack/agency-agents/`](stack/agency-agents/) | Pinned import of the `paperclipai/companies` division leads as paused, $0-budget agents. | `bash stack/agency-agents/verify.sh` |
+
+Every layer follows the same contract: a `*-lock.yaml` that pins what it resolves to, an
+`install.sh` that is dry-run by default, and a `verify.sh` that must pass before the layer is
+considered shippable.
