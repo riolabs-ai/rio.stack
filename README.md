@@ -1,6 +1,7 @@
 # rio.stack
 
-Paperclip-managed stack repository for Rio Stack AOS.
+Hermes - Project Stewardship - Obsidian - Paperclip
+Agentic Organization Mission Control
 
 This repository is the managed checkout used by Paperclip projects. It must keep at
 least one commit on its default branch (`main`) so Paperclip can create task worktrees
