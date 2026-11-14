@@ -24,13 +24,18 @@ kanban:
   # distinguish a flake from a wall; more just burns the same wall three times.
   failure_limit: 3
 
-  # The profile that plans and routes. This is the bot this template creates.
-  orchestrator_profile: "{{PROFILE}}"
-  # The profile that executes. Never the same as the orchestrator: the lead that merges must not
-  # be the worker whose work it is reviewing.
-  default_assignee: "{{EXECUTOR_PROFILE}}"
-  # Only these profiles get dispatched to at all.
-  dispatch_profiles: ["{{PROFILE}}", "{{EXECUTOR_PROFILE}}"]
+  # ---- set per install, not by the distribution -------------------------------------------
+  # A distribution has no substitution step, so these three carry no placeholders. They name
+  # profiles that only exist after the operator names them, and a wrong guess misroutes the
+  # dispatcher instead of failing loudly. Set them once, immediately after install:
+  #
+  #   hermes -p <name> config set kanban.orchestrator_profile <this-bot>
+  #   hermes -p <name> config set kanban.default_assignee <executor-profile>
+  #   hermes -p <name> config set kanban.dispatch_profiles '["<this-bot>","<executor>"]'
+  #
+  # The executor must never be the orchestrator: a lead that merges must not also be the worker
+  # whose work it is reviewing. Leaving dispatch_profiles unset claims no cards at all, which is
+  # the safe failure — the board simply stays still rather than routing work to a stranger.
 
   # Send finished cards to a review column instead of straight to done.
   review_dispatch: true
@@ -51,6 +56,14 @@ memory:
   user_char_limit: 1375
   nudge_interval: 10
   provider: builtin
+
+model:
+  # A distribution must name a primary or the first turn fails with no clear reason. Set the
+  # provider matching the key you actually hold; the fallback chain is per-install policy and is
+  # deliberately not shipped here (a poisoned fallback stops the chain dead rather than failing
+  # through, so it is not something to inherit from a template).
+  default: "deepseek-flash"
+  provider: "deepseek"
 
 plugins:
   # A template ships no plugins. Some plugin classes allow only one enabled profile per install

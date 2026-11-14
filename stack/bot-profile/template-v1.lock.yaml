@@ -24,17 +24,17 @@ pinned:
     carries: [persona, own memory, toolsets, skill choices, routines]
     never_carries: [chat history, work journal, facts about the user, api keys or logins]
 
-  # The profile half. `install.sh` merges these keys; it never overwrites a set value.
+  # The profile half. Two install paths over the same files:
+  #   new profile      → `hermes profile install profile/` (generated from distribution.yaml)
+  #   existing profile → `install.sh` merges these keys; it never overwrites a set value.
   profile:
+    distribution: profile/distribution.yaml   # name, version, hermes_requires, env_requires, owned files
     file: profile/config.yaml
     keys:
       - kanban.max_spawn
       - kanban.max_in_progress
       - kanban.max_in_progress_per_profile
       - kanban.failure_limit
-      - kanban.orchestrator_profile
-      - kanban.default_assignee
-      - kanban.dispatch_profiles
       - kanban.review_dispatch
       - approvals.timeout
       - approvals.single_query_mode
@@ -45,11 +45,17 @@ pinned:
       - memory.user_char_limit
       - memory.nudge_interval
       - memory.provider
+      - model.default
+      - model.provider
       - plugins.enabled
+    set_after_install:            # names profiles that do not exist until the operator names them
+      - kanban.orchestrator_profile
+      - kanban.default_assignee
+      - kanban.dispatch_profiles
 
 # What this layer will and will not do on install.
 install:
-  target: existing-profile      # merge into a profile that exists; never creates credentials
+  target: [new-profile, existing-profile]   # new → hermes profile install; existing → install.sh merge
   overwrite: false              # existing values win unless --force is passed explicitly
   writes: [config keys, SOUL.md if absent]
   refuses: [credentials, existing SOUL.md, existing config values without --force]
