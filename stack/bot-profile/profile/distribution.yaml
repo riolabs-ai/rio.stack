@@ -1,0 +1,43 @@
+# Hermes profile distribution manifest — the *profile half* of the bot-profile layer.
+#
+#   install a new profile :  hermes profile install stack/bot-profile/profile
+#   update an installed one: hermes profile update <name>      (user data preserved)
+#   the persona half       :  profile/SOUL.md is the only copy; render it into the bot template
+#                             with render-bot.sh, then import_agent that rendered file
+#
+# Hermes creates the profile home, applies config.yaml, and records what this
+# distribution owns so `update` can refresh it later without touching user data.
+name: bot-profile
+version: "1.0.0"
+description: >-
+  Team-lead bot profile: kanban ceilings sized for one 8-core host, approval and
+  memory settings, and the SOUL.md persona. The bot half (persona, toolsets,
+  memory seeds, daily routine) is separate and optional.
+hermes_requires: ">=0.23.1"
+license: "proprietary"
+
+# Files Hermes owns on install and refreshes on `update`. Anything not listed is
+# treated as user data and never overwritten.
+distribution_owned:
+  - SOUL.md
+  - config.yaml
+
+# Names only — never values. A distribution carries no secrets; the installer
+# reports what is missing and the operator supplies it (BWS or the profile .env).
+env_requires:
+  - name: DEEPSEEK_API_KEY
+    description: primary provider key
+  - name: OPENROUTER_API_KEY
+    description: fallback provider key
+  - name: GH_TOKEN
+    description: GitHub writes for the mirror executor
+  - name: BWS_ACCESS_TOKEN
+    description: Bitwarden Secrets Manager machine-account token
+  - name: BWS_PROJECT_ID
+    description: BWS project the managed env block is read from
+  - name: ANTHROPIC_API_KEY
+    description: optional — direct Anthropic key
+    required: false
+  - name: GITHUB_USER
+    description: optional — GitHub login used for gh attribution
+    required: false

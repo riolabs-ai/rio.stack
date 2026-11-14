@@ -1,0 +1,87 @@
+# Stack v1 lock file — Bot & Profile template layer.
+#
+# Pins the shape of this layer so any re-install resolves to the same template: the same bot format,
+# the same profile keys, the same conventions. Do not hand-edit the `pinned` block without a
+# board-approved change to this layer.
+schema: stack/v1
+layer: bot-profile
+version: "1.0.0"
+
+pinned:
+  # The bot half. `import_agent` reads exactly this format; a change of `format` or `version` is a
+  # breaking change and needs a new template file, not an edit in place.
+  bot:
+    file: bot/botforge-template.json
+    format: bot-forge/template
+    version: 1
+    display_name: Lead
+    role: team-lead
+    one_job: Turn a project's intent into routed, gated work on the kanban board, and bring back the decision.
+    toolsets:
+      [browser, clarify, code_execution, connections, cronjob, delegation, file, memory,
+       session_search, terminal, todo, vision, web]
+    routines: 1
+    carries: [persona, own memory, toolsets, skill choices, routines]
+    never_carries: [chat history, work journal, facts about the user, api keys or logins]
+
+  # The persona. One source: `profile/SOUL.md`. The bot template carries `soul_md_ref` and
+  # `render-bot.sh` inlines the document at import time, so there is no second copy to drift.
+  # This digest is therefore the only thing an edit can break — verify.sh compares the WHOLE file
+  # against it, so changing line 20 fails exactly like changing line 1. Editing the persona is
+  # allowed; re-pin here in the same commit so the change is deliberate.
+  persona:
+    file: profile/SOUL.md
+    sha256: 84f222720b45cc65dc5035a2964c73c43060fecddf6d860fb87688f3db03a18f
+
+  # The profile half. Two install paths over the same files:
+  #   new profile      → `hermes profile install profile/` (generated from distribution.yaml)
+  #   existing profile → `install.sh` merges these keys; it never overwrites a set value.
+  profile:
+    distribution: profile/distribution.yaml   # name, version, hermes_requires, env_requires, owned files
+    file: profile/config.yaml
+    keys:
+      - kanban.max_spawn
+      - kanban.max_in_progress
+      - kanban.max_in_progress_per_profile
+      - kanban.failure_limit
+      - kanban.review_dispatch
+      - approvals.timeout
+      - approvals.single_query_mode
+      - approvals.discord_prompt_timeout
+      - memory.memory_enabled
+      - memory.user_profile_enabled
+      - memory.memory_char_limit
+      - memory.user_char_limit
+      - memory.nudge_interval
+      - memory.provider
+      - model.default
+      - model.provider
+      - plugins.enabled
+    set_after_install:            # names profiles that do not exist until the operator names them
+      - kanban.orchestrator_profile
+      - kanban.default_assignee
+      - kanban.dispatch_profiles
+
+# What this layer will and will not do on install.
+install:
+  target: [new-profile, existing-profile]   # new → hermes profile install; existing → install.sh merge
+  overwrite: false              # existing values win unless --force is passed explicitly
+  writes: [config keys, SOUL.md if absent]
+  refuses: [credentials, existing SOUL.md, existing config values without --force]
+
+# Facts this layer depends on. If Hermes changes one of these behaviours, this layer is wrong and
+# should be re-pinned — these are the assertions worth re-testing on a new Hermes release.
+depends_on:
+  - id: max-spawn-read-at-boot
+    claim: kanban.max_spawn is parsed when the gateway starts and short-circuits max_in_progress.
+    check: 'grep "kanban dispatcher: max_spawn" ~/.hermes/logs/gateway.log | tail -1'
+  - id: block-does-not-kill
+    claim: kanban_block clears the run id; the worker process keeps running.
+    check: block a card with a live worker and confirm the process survives.
+  - id: restart-is-not-crash
+    claim: a clean gateway restart reconciles in-flight cards as crashed and may auto-block them.
+    check: restart with N cards running and read the dispatcher's spawned/reclaimed/crashed line.
+  - id: template-never-carries-secrets
+    claim: share_agent mode=template excludes chat history, user facts and credentials, and its scan
+           is CLEAN/WARN/BLOCK with no file written on BLOCK.
+    check: bash verify.sh

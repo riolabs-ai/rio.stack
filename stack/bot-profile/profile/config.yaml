@@ -1,0 +1,71 @@
+# Hermes profile config — bot-profile template v1
+#
+# This is a MERGE SOURCE, not a whole config. `install.sh` sets only the keys below and never
+# overwrites a value that is already present (unless --force). Every key here was read from a live
+# Hermes install; nothing is invented.
+#
+# Placeholders are written {{LIKE_THIS}}. verify.sh --strict refuses an un-replaced placeholder.
+
+kanban:
+  # ---- the ceiling that actually binds -------------------------------------------------
+  # max_spawn is read ONCE at boot and short-circuits every other limit. Changing it while the
+  # gateway runs changes nothing. The live value is the dispatcher's own log line:
+  #   grep "kanban dispatcher: max_spawn" ~/.hermes/logs/gateway.log | tail -1
+  # Honest starting point for one 8-core host running per-card builds: 4. Raise only with a
+  # measured load average, not an intention.
+  max_spawn: 4
+
+  # Checked AFTER max_spawn and cannot raise it. Per-profile stays higher so one busy profile
+  # cannot starve the others of the global slots.
+  max_in_progress: 4
+  max_in_progress_per_profile: 6
+
+  # Attempts before a card gives up and is recorded with its last failure. 3 is enough to
+  # distinguish a flake from a wall; more just burns the same wall three times.
+  failure_limit: 3
+
+  # ---- set per install, not by the distribution -------------------------------------------
+  # A distribution has no substitution step, so these three carry no placeholders. They name
+  # profiles that only exist after the operator names them, and a wrong guess misroutes the
+  # dispatcher instead of failing loudly. Set them once, immediately after install:
+  #
+  #   hermes -p <name> config set kanban.orchestrator_profile <this-bot>
+  #   hermes -p <name> config set kanban.default_assignee <executor-profile>
+  #   hermes -p <name> config set kanban.dispatch_profiles '["<this-bot>","<executor>"]'
+  #
+  # The executor must never be the orchestrator: a lead that merges must not also be the worker
+  # whose work it is reviewing. Leaving dispatch_profiles unset claims no cards at all, which is
+  # the safe failure — the board simply stays still rather than routing work to a stranger.
+
+  # Send finished cards to a review column instead of straight to done.
+  review_dispatch: true
+
+approvals:
+  # How long a gated command waits for a human before the answer is 'no'.
+  timeout: 360
+  single_query_mode: deny
+  discord_prompt_timeout: 900
+
+memory:
+  # The built-in stores are the ones that survive a provider outage. An external memory provider
+  # is a tool, not the record: if it is unreachable and auto-recall is on, every turn pays for it.
+  memory_enabled: true
+  user_profile_enabled: true
+  # Hard budgets. An over-limit write ERRORS rather than truncating, so keep them honest.
+  memory_char_limit: 2200
+  user_char_limit: 1375
+  nudge_interval: 10
+  provider: builtin
+
+model:
+  # A distribution must name a primary or the first turn fails with no clear reason. Set the
+  # provider matching the key you actually hold; the fallback chain is per-install policy and is
+  # deliberately not shipped here (a poisoned fallback stops the chain dead rather than failing
+  # through, so it is not something to inherit from a template).
+  default: "deepseek-flash"
+  provider: "deepseek"
+
+plugins:
+  # A template ships no plugins. Some plugin classes allow only one enabled profile per install
+  # (a duplicate is a hard dependency failure), so plugin choice is a per-install decision.
+  enabled: []

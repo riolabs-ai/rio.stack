@@ -1,35 +1,32 @@
 # rio.stack
 
-Hermes - Project Stewardship - Obsidian - Paperclip
-Agentic Organization Mission Control
+**Agentic Relationship Information Orchestration** — the pinned stack the RioLabs AI Hermes
+bots run on.
 
-This repository is the managed checkout used by Paperclip projects. It must keep at
-least one commit on its default branch (`main`) so Paperclip can create task worktrees
-with `git worktree add`. An empty repository has no valid `HEAD`, and every task run
-in this project fails at setup with `fatal: invalid reference: HEAD`.
+Hermes · Project Stewardship · Obsidian · Paperclip — Agentic Organization Mission Control.
+
+One directory per layer under `stack/`. This is also the checkout Paperclip projects branch
+from, so `main` must always keep at least one commit: an empty repository has no valid
+`HEAD`, and every task run fails at setup with `fatal: invalid reference: HEAD`.
 
 ## Layout
 
-- `stack/` — pinned, versioned stack layers (see `stack/agency-agents/` once landed).
+- `stack/` — the pinned, versioned stack layers listed below.
+- `IDEA.md` — intake: needs, ideas and fixes dumped here before they become issues or
+  layers. Not documentation; see the layers for what is actually true.
 
-He is a rio.stack bot named ASE-Github (Agentic Stack Expert) - nick name for later, and for the moment he needs to refine his tools and skills for surfacing the best Github projects/tools/configs for full-power Hermes, or help conclude we and he just need MCP, and the cli?
+## Stack layers
 
-But he needs to recommend the best agency multirepo Hermes toolsets and operations, you identified all the buzzwords, but we're not baking or inventing.
+| Layer | What it is | Verify |
+| --- | --- | --- |
+| [`stack/foundation/`](stack/foundation/) | The guarantees the stack must hold *before* any plugin, profile or tool is admitted — adversarially derived, each carrying the failure that produced it. | `bash stack/foundation/verify.sh` |
+| [`stack/bot-profile/`](stack/bot-profile/) | **Bot & Profile template v1** — an importable, batteries-included Hermes bot (persona, toolset ceiling, starter memory, one routine) plus the profile config that makes it run a project team on native Kanban. No secrets, no chat history, no client specifics. | `bash stack/bot-profile/verify.sh` |
+| [`stack/github-specops/`](stack/github-specops/) | The `specops` profile: a shell-first, evidence-led GitHub operator — persona, capability, five repeatable manifests with HIL gates. | docs + `tools/` (no `verify.sh` yet) |
+| [`stack/providers/`](stack/providers/) | Provider capability matrix, config as code, and permission tiers (R-32…R-35). | docs only |
+| [`stack/agency-agents/`](stack/agency-agents/) | Pinned import of the 9 `paperclipai/companies` division leads as paused, $0-budget agents. | `bash stack/agency-agents/verify.sh` |
 
-Does he have MCP, the sdk or Hermes Github plugin devops dashboard, etc etc.
-And how does he custondian 20 repos for 7 organizations. what is the quiz and form based Onboarding for each profile etc.
-
-As of the the most base ASE config/tools/integrations for Github is better than Rio, so revise and improve the sentiment, vision and goal of my statements, combined with your suggestions, to codify in one or two stack todos on rio.stack tag Hermes, Github, ASE, Bot, etc
-
-this started by trying to dump every need, idea, fix, etc, to ingest on rio.stack, Github ASE is very high priority, as is 15 other ASE, next if Vercel, then Resend, Cloudflare, Google, Google Workspace, one for every agent harnes. All issues on rio.stack please.
-
-Back to Hermes plugin and skills tools, etc, what needs config and validated config for the plugins installed or active? rich-ui project steward ship, instead of Projects and Ghatt lets eval after Steward.
-
-sorry for the complex direction, but just parse each sentence/topic into issues in backlog. active tasks now:
-1. rename ase.github
-2. find all Hermes github config, integration, keys, tokens, etc etc to and he is now responsible including making the secrets plan for him and ASE with bws, one bws user account per Github Organization account. give me a form to answer decisios and triage for his duties.
-3. Herms Google Workspace , and single root personal works space now ~/desktop/dev.local
-~/rio.prodesk and my projects and repo need an organization standard. should be the only place i save work and files all sync or backedup not this computer.
-big issues with 1000 hours work and files on disks and computers and cloud. ~/rio.xps, ~rio.blacktop, github, and rio-labs.ai google drive
-
-Please issue these as best as possible and help with plugin, and more hermes reset
+Layers that ship software (`bot-profile`, `agency-agents`) follow the same contract: a
+`*-lock.yaml` that pins what it resolves to, an `install.sh` that is dry-run by default, and a
+`verify.sh` that must pass before the layer is considered shippable. `foundation` carries the
+requirements plus its own `verify.sh`; `github-specops` and `providers` are docs-and-tools
+layers with no installer.
