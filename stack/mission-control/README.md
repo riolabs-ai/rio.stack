@@ -312,7 +312,10 @@ open GitHub issues (§0). `verify` re-reads the live Hermes state, and the backu
 by git history. Folds in rio.stack#19 (Hermes reset), #15 (toolsets standard), #22 (steward
 charter) and `stack/bot-profile`.
 
-**2. Next providers, in order:** Obsidian (vault app + REST API, `stack.yaml` already pins
+**2. Everything after Hermes + HPS is decided by #37, not presumed.** Jaden's rule is that 3
+layers at 110% beat 28 half-done. #37 adversarially evaluates each candidate (claim, red-team
+counter-case, evidence, then keep / cut / defer) and produces the agent-team roster for the
+pipeline (§4). Follow-up issues get opened only for layers that survive. Candidates under review: Obsidian (vault app + REST API, `stack.yaml` already pins
 it) · Vercel · Porkbun (registrar, DNS deferred but account config and API access in scope) ·
 Neon · Resend · **Vercel Marketplace** integrations billed through Vercel project billing (one
 entry per installed integration, with resources, billing owner and env vars it injects).
@@ -320,10 +323,12 @@ Google Workspace mail is rio.stack#25. Grok Bot follows the agent-config layer.
 
 ## 9. Roadmap
 
-**P0, in this order of leverage:** the pipeline, agent config, and Hermes. Everything else feeds them.
+**P0, in this order of leverage:** the pipeline, agent config, and Hermes + HPS, gated by the
+minimal-stack research in #37 (3 layers at 110% beat 28 half-done). Everything else waits on #37's verdicts.
 
 | Pri | Issue | Item | Done when |
 |---|---|---|---|
+| p0 | #37 | Research: adversarially prove the minimal stack (Hermes + HPS first, agent teams) | `docs/stack-decisions.md` approved by Jaden; follow-ups only for kept layers |
 | p0 | #33 | Pipeline: issue → triage → eval → pool → PR → release, minimal CI, squash-only | one layer release runs end to end with a single trickle-down PR |
 | p0 | #34 | Agent config layer: AGENTS.md + pointers, GitHub App permissions, provider validation | rendered into rio.stack + one consumer, verify passes |
 | p0 | #35 | Hermes as the first provider, re-slated around Project Stewardship | `stack/hermes` desired/verify, rio.stack enrolled at autonomy 1 |
@@ -333,7 +338,7 @@ Google Workspace mail is rio.stack#25. Grok Bot follows the agent-config layer.
 | p1 | #30 | Trickle-down sync (the pipeline's last stage) | preview for all, `--write` on one project |
 | p1 | #31 | Workspace layout standard | `~/local/rio/{rio,business,clients,creator}` decided, moves one by one |
 | p1 | #32 | Onboard existing riolabs-ai repos | every entry onboarded, exception, or decided |
-| p1/p2 | #36 | Providers after Hermes: Obsidian, Vercel, Vercel Marketplace, Neon, Resend, Porkbun | one provider layer each |
+| — | #36 | Provider candidates after Hermes (Obsidian, Vercel, Vercel Marketplace, Neon, Resend, Porkbun) | parked; superseded by #37's keep/cut/defer verdicts |
 | p1 | #25 | Google Workspace mail pipelines | (existing) |
 
 Shipped provider core: `stack/github-template` (#23).
