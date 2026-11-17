@@ -3,15 +3,22 @@
 # Every key is required. A value you do not have yet should say so in words
 # ("TODO: ..."), never be invented. Multi-line values are fine (YAML block scalars).
 ORG_NAME: acme                       # GitHub login of the account or org
-ACCOUNT_KIND: org                    # org | user (decides where profile/README.md goes)
+ACCOUNT_KIND: org                    # org: profile in <org>/.github/profile; user: profile in <user>/<user> (needs --profile-out)
 DISPLAY_NAME: Acme Labs
 TAGLINE: Tools that do one thing well.
+MOTTO: Small tools, sharp edges.
+LINK_ROW: "[acme-community](https://github.com/acme-community) · [Docs](https://example.com/docs)"
 ABOUT: >-
   Acme Labs builds small, sharp tools and ships them in the open.
 FOCUS: |-
   - Developer tooling
   - Automation
   - Docs that stay true
+HIGHLIGHTS: |-
+  - **[widget](https://github.com/acme/widget)**: the widget, done properly.
+  - **[gadget](https://github.com/acme/gadget)**: a gadget for the widget.
+RADAR: |-
+  - [octocat/Hello-World](https://github.com/octocat/Hello-World): the classic.
 HOME_SCOPE: the products and the tools behind them.
 RELATED_ORG: acme-community
 RELATED_SCOPE: community projects and examples.
@@ -21,5 +28,6 @@ CONTACT_EMAIL: hello@acme.example
 SECURITY_EMAIL: security@acme.example
 SECURITY_RESPONSE: 5 business days
 SUPPORT_LEVEL: best effort
-AVATAR_FILE: avatar.png             # file name under profile/assets/
-AVATAR_SOURCE: ""                   # optional local path; render.sh copies it to profile/assets/AVATAR_FILE
+AVATAR_FILE: avatar.png             # file name under assets/ next to the profile README
+AVATAR_ALT: Acme Labs logo
+AVATAR_SOURCE: ""                   # optional local path; render.sh copies it next to the profile README as assets/AVATAR_FILE

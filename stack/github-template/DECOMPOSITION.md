@@ -20,7 +20,7 @@ SVG artwork, with CI proving the page is current and an hourly autopilot refresh
 
 | Source file | Role | In v1 template |
 | --- | --- | --- |
-| `profile/README.md` | The org page GitHub renders. Generated, never hand-edited | **Adapted** → `template/profile/README.md`, rendered once from values (no generator yet) |
+| `profile/README.md` | The org page GitHub renders. Generated, never hand-edited | **Adapted** → `template/profile/README.md`, rendered from values to `.github/profile/` (org) or `<user>/<user>` (user) |
 | `profile/assets/header-{dark,light}.svg` | Light/dark header via `<picture>` | **Deferred** → v2 (avatar image only in v1) |
 | `profile/assets/buttons/*.svg`, `covers/*.svg` | CTA buttons and per-repo cover art, text as glyph outlines | **Deferred** → v2 |
 | `templates/README.md.tmpl` | Page prose with `{{slots}}` | **Adapted** → the `{{PLACEHOLDER}}` idea, applied to every file |
