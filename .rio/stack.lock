@@ -1,0 +1,13 @@
+# .rio/stack.lock — which rio.stack commit and layer versions this project is pinned to.
+# Written by `rio init`. `rio sync` (rio.stack#30) will later offer updates against this file.
+schema: rio.stack.lock/v1
+stack:
+  repo: riolabs-ai/rio.stack
+  pin: 87f0917
+  ref: 87f0917
+layers:
+  agency-agents: "1.0.0"
+  bot-profile: "1.0.0"
+  github-template: "1.0.0"
+  mission-control: "1.0.0"
+  rio-cli: "1.0.0"
