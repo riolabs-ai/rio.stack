@@ -1,0 +1,187 @@
+# Rio Labs mission control — registry v1.
+#
+# The single list of projects rio.stack administers. Read by tools/mc.py (status, validate;
+# later sync). Built from the 2026-11-17 inventory of the riolabs-ai org and ~/local/rio on
+# prodesk. Forks are not projects and are not listed (68 riolabs-ai forks at inventory time).
+#
+# Paths: `local` = where it is today (null = not cloned); `target` = where it should live under
+# the workspace standard proposal (README §6). Nothing has been moved.
+schema: mission-control/v1
+updated: 2026-11-17
+workspace_root: ~/local/rio
+watch_owners: [riolabs-ai]          # status reports source repos here that are missing below
+
+projects:
+
+  # ── rio: the platform ──────────────────────────────────────────────────────────────────────
+  - id: rio-stack
+    repo: riolabs-ai/rio.stack
+    local: ~/local/rio/rio.stack
+    target: ~/local/rio/rio/rio.stack
+    domain: rio
+    status: source
+    layers: {}
+    notes: The stack itself. Local clone sits on the merged feat/github-provider-template branch
+      with untracked deps/ and stack.yaml (declared host deps, Obsidian pin) — owner to decide
+      whether they get committed as a layer.
+
+  - id: rio-vault
+    repo: riolabs-ai/rio.vault
+    local: ~/local/rio/rio.vault
+    target: ~/local/rio/rio/rio.vault
+    domain: rio
+    status: candidate
+    layers: {}
+    notes: Private Obsidian vault. Default branch is master (the stack standard is main).
+
+  - id: brand
+    repo: null
+    local: ~/local/rio/brand
+    target: ~/local/rio/rio/brand
+    domain: rio
+    status: candidate
+    layers: {}
+    notes: Local-only, not a git repo (3 images). Decide - own repo, or fold into rio.vault.
+
+  - id: github-project
+    repo: riolabs-ai/.github.project
+    local: null
+    target: ~/local/rio/rio/.github.project
+    domain: rio
+    status: review
+    layers: {}
+    notes: Older .github setup kit (SETUP_TEMPLATE.sh). Likely superseded by stack/github-template.
+      riolabs-ai has no real <org>/.github repo yet, so the org has no profile page.
+
+  - id: strapi-cloud
+    repo: riolabs-ai/strapi-cloud
+    local: null
+    target: ~/local/rio/rio/starters/strapi-cloud
+    domain: rio
+    status: review
+    layers: {}
+    notes: Starter. Keep as a stack starter, or retire.
+
+  - id: convex-starter
+    repo: riolabs-ai/convex-starter
+    local: null
+    target: ~/local/rio/rio/starters/convex-starter
+    domain: rio
+    status: review
+    layers: {}
+    notes: Starter. Keep as a stack starter, or retire.
+
+  - id: create-v1-turbostarter
+    repo: riolabs-ai/create-v1-turbostarter
+    local: null
+    target: ~/local/rio/rio/starters/create-v1-turbostarter
+    domain: rio
+    status: review
+    layers: {}
+    notes: Starter. Keep as a stack starter, or retire.
+
+  - id: telegram-dawnloader
+    repo: riolabs-ai/Telegram-Dawnloader
+    local: null
+    target: ~/local/rio/creator/telegram-dawnloader
+    domain: creator
+    status: review
+    layers: {}
+    notes: Utility; no description. Keep as a creator tool, or retire.
+
+  # ── business: Rio Labs products and sites ──────────────────────────────────────────────────
+  - id: web-riolabs-ai
+    repo: riolabs-ai/web.riolabs.ai
+    local: ~/local/rio/web.riolabs.ai
+    target: ~/local/rio/business/web.riolabs.ai
+    domain: business
+    status: candidate
+    layers: {}
+    notes: MISMATCH - the local folder is a notes folder (one .md), not a clone. Default branch dev.
+
+  - id: riolabs-ai-site
+    repo: riolabs-ai/riolabs.ai
+    local: null
+    target: ~/local/rio/business/riolabs.ai
+    domain: business
+    status: review
+    layers: {}
+    notes: Small (28 KB), last push 2025-12. Overlaps web.riolabs.ai - pick one as the site.
+
+  - id: alignsynch
+    repo: riolabs-ai/alignsynch
+    local: null
+    target: ~/local/rio/business/alignsynch
+    domain: business
+    status: candidate
+    layers: {}
+    notes: Active product (pushed 2026-11-17). Not cloned under ~/local/rio; ~/local/alignsynch
+      holds one HTML mockup only.
+
+  - id: alignsynch-mvp
+    repo: riolabs-ai/alignsynch-mvp
+    local: null
+    target: ~/local/rio/business/alignsynch-mvp
+    domain: business
+    status: review
+    layers: {}
+    notes: Earlier AlignSynch build (2025-12). Probably superseded by alignsynch.
+
+  - id: alignsynch-site
+    repo: riolabs-ai/AlignSynch-Site
+    local: null
+    target: ~/local/rio/business/alignsynch-site
+    domain: business
+    status: review
+    layers: {}
+    notes: Near-empty (1 KB) copy clone, 2025-09.
+
+  - id: domains-for-sale
+    repo: riolabs-ai/domains-for-sale
+    local: null
+    target: ~/local/rio/business/domains-for-sale
+    domain: business
+    status: review
+    layers: {}
+    notes: Private and empty (no default branch). Domain work is deferred.
+
+  # ── clients ────────────────────────────────────────────────────────────────────────────────
+  - id: fourthwall
+    repo: roryskagenart/fw-revops
+    local: ~/local/rio/fourthwall
+    target: ~/local/rio/clients/rory/fourthwall
+    domain: clients
+    status: exception
+    layers: {}
+    notes: Client-owned repo (roryskagenart). Administered by the client; mission control reports
+      it but never syncs into it. Local has an untracked public/ folder.
+
+  # ── creator ────────────────────────────────────────────────────────────────────────────────
+  - id: youtube-pipe-ingest
+    repo: null
+    local: ~/local/rio/youtube-pipe-ingest
+    target: ~/local/rio/creator/youtube-pipe-ingest
+    domain: creator
+    status: candidate
+    layers: {}
+    notes: Local-only, not a git repo (saved pages). Seed for the creator / YouTube pipeline.
+
+  # ── personal: jadenblack, first consumer of a stack layer ──────────────────────────────────
+  - id: jadenblack-github
+    repo: jadenblack/.github
+    local: ~/local/jadenblack/.github
+    target: ~/local/jadenblack/.github
+    domain: personal
+    status: candidate
+    layers: {github-template: "1.0.0"}
+    notes: Rendered from github-template 1.0.0 (jadenblack/ops#10). Needs rio.project.yaml to be
+      onboarded. Tracked in jadenblack/ops.
+
+  - id: jadenblack-profile
+    repo: jadenblack/jadenblack
+    local: ~/local/jadenblack/jadenblack
+    target: ~/local/jadenblack/jadenblack
+    domain: personal
+    status: candidate
+    layers: {github-template: "1.0.0"}
+    notes: Profile page rendered from github-template 1.0.0.

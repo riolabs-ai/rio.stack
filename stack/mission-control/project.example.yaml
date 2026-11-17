@@ -1,0 +1,15 @@
+# rio.project.yaml — reference example. Copy to a project's root and fill in.
+# A project with this file is `onboarded`; without it, mission control treats it as a candidate.
+schema: rio.project/v1
+id: jadenblack-github                # must match the registry id
+owner: jadenblack
+repo: jadenblack/.github
+domain: personal                     # rio | business | clients | creator | personal
+stack:
+  ref: c8a3bfe                       # rio.stack commit the layers were rendered from
+  layers:
+    github-template: "1.0.0"         # layer -> version, from stack/<layer>/*-lock.yaml
+exceptions:
+  - layer: github-template
+    path: profile/README.md
+    reason: personal account - the profile page lives in jadenblack/jadenblack, this is a pointer
