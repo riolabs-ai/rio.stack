@@ -1,0 +1,110 @@
+# rio.stack — declared dependencies for the rio Hermes stack
+#
+# Loaded by `deps/<name>.sh`, which implements install | verify | migrate for each block.
+# Rule: every dependency carries a PIN, a SOURCE with a hash where the vendor publishes one,
+# and a VERIFY command that fails loudly. A dependency that cannot be verified is not a dependency.
+
+version: 1
+updated: 2026-11-13
+
+host:
+  os: ubuntu-24.04            # libsecret + apparmor profile behaviour depends on this
+  user: jadenblack
+
+dependencies:
+
+  # ── Obsidian: the vault app ────────────────────────────────────────────────────────────────
+  # Decision 2026-11-13: .deb, not Flatpak.
+  #
+  # Why: the Flatpak sandbox cannot see the host's credentials. Measured — /home/<user>/.local/bin/gh
+  # runs inside the sandbox, but `gh auth status` there answers "You are not logged into any GitHub
+  # hosts", so git pushes unauthenticated and GitHub answers 404 "Repository not found" for the private
+  # vault repo. obsidian-git can therefore never push from inside the Flatpak.
+  # The .deb declares libsecret-1-0 and runs unsandboxed, so keyring access and the git credential
+  # helper work the way they do in a terminal.
+  obsidian:
+    kind: system-package
+    pin: 1.15.1
+    source:
+      url: https://github.com/obsidianmd/obsidian-releases/releases/download/v1.15.1/obsidian_1.15.1_amd64.deb
+      sha256: f77b6dfc8c040214f2febad2b1b9b051b6a838a47b0f4fb90a31cfcb79b8fcec
+      size_bytes: 108000000
+    install:
+      - sudo apt-get install -y ./obsidian_1.15.1_amd64.deb   # pulls libgtk-3-0, libnss3, libsecret-1-0, libatspi2.0-0 …
+      - sudo apt-mark hold obsidian                          # version is pinned deliberately; unhold to upgrade
+    files:
+      binary: /opt/Obsidian/obsidian          # postinst links this to /usr/bin/obsidian via update-alternatives
+      cli: /opt/Obsidian/obsidian-cli         # NOT linked by the package — we link it
+      desktop: /usr/share/applications/md.obsidian.Obsidian.desktop
+    links:
+      - { from: ~/.local/bin/obsidian-cli, to: /opt/Obsidian/obsidian-cli }
+      - { from: ~/.local/bin/obsidian,     to: /opt/Obsidian/obsidian-cli }   # repoint: currently → the Flatpak's CLI
+    verify:
+      - dpkg-query -W -f='${Version}' obsidian          # expect 1.15.1
+      - test -x /opt/Obsidian/obsidian
+      - obsidian-cli version                            # note: subcommand `version`, not `--version`
+    conflicts_with:
+      - flatpak:md.obsidian.Obsidian                    # two installs = two config dirs and a stale CLI symlink
+    notes: |
+      The app must be RUNNING for the CLI and the REST API to answer; both are in-process.
+      Left-behind Flatpak profile (89 MB) lives at ~/.var/app/md.obsidian.Obsidian — delete only after
+      hotkeys/workspace are confirmed in the new install. Vault content is untouched either way:
+      plugins and their data, including the Local REST API key, live inside the vault.
+
+  # ── Local REST API: read/write surface for agents ─────────────────────────────────────────
+  obsidian-local-rest-api:
+    kind: vault-plugin            # lives in the vault, not the system
+    pin: 5.5.2
+    location: <vault>/.obsidian/plugins/obsidian-local-rest-api
+    endpoints:
+      https: https://127.0.0.1:27124      # 27123 (http) is disabled by design
+      mcp: https://127.0.0.1:27124/mcp/
+    secret:
+      store: <vault>/.obsidian/plugins/obsidian-local-rest-api/data.json  # field apiKey
+      rule: never print, never commit (the vault repo is private but the key is still a credential)
+    verify:
+      - curl -sk -H "Authorization: Bearer $KEY" https://127.0.0.1:27124/ | grep '"authenticated":true'
+    notes: |
+      Returns 403 for .obsidian/ by design — do not enable config-dir access to work around it.
+
+  # ── Hermes ↔ vault wiring ─────────────────────────────────────────────────────────────────
+  hermes-obsidian-mcp:
+    kind: hermes-config
+    key: mcp_servers.obsidian
+    value:
+      url: https://127.0.0.1:27124/mcp/
+      headers: { Authorization: "Bearer <key>" }
+      ssl_verify: false            # LRA ships a self-signed cert; see notes
+    verify:
+      - hermes mcp test obsidian    # expect 20 tools
+    notes: |
+      Header auth is stored in config.yaml in plaintext — acceptable because the endpoint is loopback-only.
+      To drop ssl_verify, pin LRA's CA instead of disabling verification.
+
+  # ── Vault View: display surface ───────────────────────────────────────────────────────────
+  vault-view:
+    kind: hermes-desktop-plugin   # bundled — version tracks HERMES, not Obsidian
+    pin: 0.5.1                    # installed 0.5.0; 0.5.1 fixed the session_id break and the od block size
+    verify:
+      - jq -r .version ~/.hermes/desktop-plugins/hermes-desktop-plugin-vault-view/plugin.yaml
+    upgrade: hermes update
+    notes: |
+      0.5.0 is broken against Hermes ≥0.22.1: `shell.exec` needs a session_id it does not send, so every
+      folder reads as "not a valid Obsidian vault". The desktop app being 20 commits behind is what holds
+      this at 0.5.0.
+
+  # ── Vault backup (git) ────────────────────────────────────────────────────────────────────
+  vault-git:
+    kind: git-remote
+    repo: riolabs-ai/rio.vault    # PRIVATE since 2026-11-13 (owner account riolabs-ai owns it)
+    remote_name: origin           # it was created as `riolabs-ai/rio.vault` — every `git push origin` failed
+    branch: master
+    split:
+      commits: obsidian-git plugin, autoSaveInterval 10 min, disablePush true
+      push: ~/.hermes/scripts/vault_sync.sh via cron 98c81498077d every 10 min (host credentials)
+    verify:
+      - git -C <vault> rev-parse HEAD = git -C <vault> ls-remote origin master
+    notes: |
+      After the .deb switch the sandbox boundary is gone, so the plugin's own push would work again.
+      Keep the cron as the single writer for the network operation unless there is a reason not to —
+      one mechanism that can be verified beats two that can race.
