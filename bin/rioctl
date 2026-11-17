@@ -1,0 +1,581 @@
+#!/usr/bin/env bash
+# rioctl — project and user bootstrap for rio.stack.
+#
+#   rioctl init              preview .rio/ + rio.project.yaml (pass --write to apply)
+#   rioctl status            wrap stack/mission-control/status.sh
+#   rioctl sync              preview-only stub of trickle-down (rio.stack#30)
+#   rioctl promote           stub: print the PR it would open (rio.stack#29)
+#   rioctl doctor            check gh, git, python, the rio home
+#   rioctl version | help
+#
+# `rio` is the Hermes rio-profile launcher (~/.local/bin/rio) and is not this CLI.
+#
+# Env: RIO_HOME (default ~/.rio), RIO_STACK (override the stack checkout), PYTHON
+set -euo pipefail
+
+VERSION="1.0.0"
+DEFAULT_HOME="${HOME}/.rio"
+RIO_HOME="${RIO_HOME:-$DEFAULT_HOME}"
+PYTHON="${PYTHON:-python3}"
+
+die()  { printf 'rioctl: %s\n' "$*" >&2; exit 1; }
+usage_err() { printf 'rioctl: %s\n' "$*" >&2; cmd_help >&2; exit 2; }
+note() { printf 'rioctl: %s\n' "$*"; }
+step() { printf '  %-8s %s\n' "$1" "$2"; }
+
+resolve_self() {
+  local src="$0"
+  if command -v readlink >/dev/null 2>&1 && readlink -f "$src" >/dev/null 2>&1; then
+    readlink -f "$src"
+    return
+  fi
+  while [ -L "$src" ]; do
+    local dir
+    dir="$(CDPATH= cd -- "$(dirname -- "$src")" && pwd)"
+    src="$(readlink "$src")"
+    case "$src" in
+      /*) ;;
+      *) src="$dir/$src" ;;
+    esac
+  done
+  printf '%s/%s\n' "$(CDPATH= cd -- "$(dirname -- "$src")" && pwd)" "$(basename -- "$src")"
+}
+
+# Stack checkout that carries mission-control, layer locks, and this CLI.
+# Prefer an explicit override, then the checkout this script lives in, then $RIO_HOME/stack.
+resolve_stack() {
+  if [ -n "${RIO_STACK:-}" ]; then
+    printf '%s\n' "$RIO_STACK"
+    return
+  fi
+  local self dir
+  self="$(resolve_self)"
+  dir="$(CDPATH= cd -- "$(dirname -- "$self")/.." && pwd)"
+  if [ -d "$dir/stack/mission-control" ] && [ -f "$dir/install.sh" ]; then
+    printf '%s\n' "$dir"
+    return
+  fi
+  if [ -d "$RIO_HOME/stack/stack/mission-control" ]; then
+    printf '%s\n' "$RIO_HOME/stack"
+    return
+  fi
+  die "cannot find a rio.stack checkout. Run install.sh (or set RIO_STACK / RIO_HOME)."
+}
+
+have() { command -v "$1" >/dev/null 2>&1; }
+
+norm_repo() {
+  # $1: a git remote URL or owner/name -> owner/name (lowercase)
+  local u="${1:-}"
+  [ -n "$u" ] || return 1
+  u="${u%.git}"
+  u="${u#https://github.com/}"
+  u="${u#http://github.com/}"
+  u="${u#git@github.com:}"
+  u="${u#ssh://git@github.com/}"
+  printf '%s\n' "$u" | tr '[:upper:]' '[:lower:]'
+}
+
+git_root() {
+  git rev-parse --show-toplevel 2>/dev/null || return 1
+}
+
+git_origin_repo() {
+  local url root
+  root="$(git_root)" || return 1
+  url="$(git -C "$root" remote get-url origin 2>/dev/null || true)"
+  [ -n "$url" ] || return 1
+  norm_repo "$url"
+}
+
+# Print "key<TAB>value" lines for a registry project matching owner/name, or nothing.
+registry_lookup() {
+  local reg="$1" repo="$2"
+  [ -f "$reg" ] || return 1
+  have "$PYTHON" || return 1
+  "$PYTHON" - "$reg" "$repo" <<'PYLOOKUP'
+import sys
+try:
+    import yaml
+except ImportError:
+    sys.exit(2)
+reg = yaml.safe_load(open(sys.argv[1])) or {}
+want = sys.argv[2].strip().lower()
+for p in reg.get("projects") or []:
+    repo = (p.get("repo") or "")
+    if repo.lower() == want:
+        for k in ("id", "repo", "domain"):
+            v = p.get(k)
+            if v is not None:
+                print(f"{k}\t{v}")
+        if repo and "/" in repo:
+            print(f"owner\t{repo.split('/', 1)[0]}")
+        layers = p.get("layers") or {}
+        for name, ver in layers.items():
+            print(f"layer.{name}\t{ver}")
+        sys.exit(0)
+sys.exit(1)
+PYLOOKUP
+}
+
+# Print "name<TAB>version" for every layer lock under stack/.
+layer_versions() {
+  local stack="$1"
+  [ -d "$stack/stack" ] || return 0
+  if have "$PYTHON" && "$PYTHON" -c 'import yaml' 2>/dev/null; then
+    "$PYTHON" - "$stack/stack" <<'PYLAYERS'
+import sys, pathlib
+import yaml
+root = pathlib.Path(sys.argv[1])
+for lock in sorted(root.glob("*/*lock*.yaml")):
+    d = yaml.safe_load(lock.read_text()) or {}
+    if d.get("layer") and d.get("version") is not None:
+        print(f"{d['layer']}\t{d['version']}")
+PYLAYERS
+    return
+  fi
+  return 0
+}
+
+stack_ref() {
+  local stack="$1"
+  if [ -d "$stack/.git" ]; then
+    git -C "$stack" rev-parse --short HEAD 2>/dev/null || printf 'unknown\n'
+  else
+    printf 'unknown\n'
+  fi
+}
+
+yaml_quote() {
+  local v="$1"
+  case "$v" in
+    ""|*" "*|*:*) printf '"%s"\n' "${v//\"/\\\"}" ;;
+    *)            printf '%s\n' "$v" ;;
+  esac
+}
+
+cmd_help() {
+  cat <<'H'
+rioctl — bootstrap and operate a project against rio.stack
+
+Usage:
+  rioctl init [--write] [--force] [--id ID] [--repo OWNER/NAME] [--domain DOMAIN]
+  rioctl status [--offline] [--json] [--registry FILE]
+  rioctl sync
+  rioctl promote
+  rioctl doctor
+  rioctl version
+  rioctl help
+
+`rio` is the Hermes rio-profile launcher, not this CLI.
+
+init is preview-only unless --write is passed. sync and promote are stubs in v1
+(they print the plan and never open a PR). status wraps mission-control status.sh.
+
+Env: RIO_HOME (default ~/.rio), RIO_STACK, PYTHON
+H
+}
+
+cmd_version() {
+  local stack
+  stack="$(resolve_stack 2>/dev/null || true)"
+  printf 'rioctl %s\n' "$VERSION"
+  if [ -n "$stack" ]; then
+    printf 'stack %s @ %s\n' "$stack" "$(stack_ref "$stack")"
+  fi
+}
+
+cmd_doctor() {
+  local fail=0
+  local stack=""
+  printf 'rioctl doctor\n'
+  if have git; then
+    step ok "git $(git --version | awk '{print $3}')"
+  else
+    step FAIL "git not on PATH"; fail=1
+  fi
+  if have gh; then
+    if gh auth status >/dev/null 2>&1; then
+      local acct
+      acct="$(gh api user --jq .login 2>/dev/null || printf 'unknown')"
+      step ok "gh authenticated as $acct"
+    else
+      step FAIL "gh found but not authenticated"; fail=1
+    fi
+  else
+    step FAIL "gh not on PATH"; fail=1
+  fi
+  if have "$PYTHON"; then
+    if "$PYTHON" -c 'import yaml' 2>/dev/null; then
+      step ok "$PYTHON + pyyaml"
+    else
+      step warn "$PYTHON found, pyyaml missing (registry lookup and status need it)"
+    fi
+  else
+    step FAIL "python3 not on PATH"; fail=1
+  fi
+  if have yq; then
+    step ok "yq (optional) $(yq --version 2>/dev/null | head -n1)"
+  else
+    step ok "yq not installed (optional; pyyaml is the fallback)"
+  fi
+  if have shellcheck; then
+    step ok "shellcheck (optional)"
+  else
+    step ok "shellcheck not installed (optional)"
+  fi
+
+  if stack="$(resolve_stack 2>/dev/null)"; then
+    step ok "stack $stack @ $(stack_ref "$stack")"
+  else
+    step FAIL "no rio.stack checkout (run install.sh, or set RIO_STACK)"
+    fail=1
+  fi
+
+  if [ -d "$RIO_HOME" ]; then
+    if [ -L "$RIO_HOME/bin/rioctl" ] || [ -f "$RIO_HOME/bin/rioctl" ]; then
+      step ok "RIO_HOME $RIO_HOME (bin/rioctl present)"
+    else
+      step warn "RIO_HOME $RIO_HOME exists but bin/rioctl is missing (re-run install.sh)"
+    fi
+  else
+    step warn "RIO_HOME $RIO_HOME not installed (ok if you are running ./bin/rioctl from a checkout)"
+  fi
+
+  if have rioctl; then
+    step ok "rioctl on PATH: $(command -v rioctl)"
+  else
+    step warn "rioctl not on PATH (add $RIO_HOME/bin, or call it as $RIO_HOME/bin/rioctl)"
+  fi
+
+  # `rio` is reserved for the Hermes rio-profile launcher. Confirm it has not
+  # been replaced by this CLI (or anything else).
+  if have rio; then
+    local rio_path
+    rio_path="$(command -v rio)"
+    if grep -qE 'hermes[[:space:]].*-p[[:space:]]+rio' "$rio_path" 2>/dev/null; then
+      step ok "rio on PATH is the Hermes rio-profile wrapper ($rio_path)"
+    else
+      step FAIL "rio on PATH is $rio_path, not the Hermes rio-profile wrapper (leave ~/.local/bin/rio alone)"
+      fail=1
+    fi
+  else
+    step warn "rio is not on PATH (expected the Hermes rio-profile wrapper; this CLI is rioctl)"
+  fi
+
+  local root
+  if root="$(git_root)"; then
+    local flags=""
+    [ -f "$root/rio.project.yaml" ] && flags="${flags} rio.project.yaml"
+    [ -d "$root/.rio" ] && flags="${flags} .rio/"
+    if [ -n "$flags" ]; then
+      step ok "project $root ($flags )"
+    else
+      step warn "project $root has no rio.project.yaml or .rio/ — run rioctl init"
+    fi
+  else
+    step warn "not inside a git repo"
+  fi
+
+  if [ "$fail" -ne 0 ]; then
+    note "doctor found $fail required-tool failure(s)"
+    return 1
+  fi
+  note "doctor ok"
+  return 0
+}
+
+cmd_status() {
+  local stack
+  stack="$(resolve_stack)"
+  local sh="$stack/stack/mission-control/status.sh"
+  [ -f "$sh" ] || die "status.sh missing at $sh"
+  exec bash "$sh" "$@"
+}
+
+cmd_init() {
+  local write=0 force=0 id="" repo="" domain=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --write)  write=1; shift ;;
+      --force)  force=1; shift ;;
+      --id)     id="${2:?--id needs a value}"; shift 2 ;;
+      --repo)   repo="${2:?--repo needs a value}"; shift 2 ;;
+      --domain) domain="${2:?--domain needs a value}"; shift 2 ;;
+      -h|--help) note "rioctl init [--write] [--force] [--id ID] [--repo OWNER/NAME] [--domain DOMAIN]"; return 0 ;;
+      *)        usage_err "init: unknown argument: $1" ;;
+    esac
+  done
+
+  local root
+  root="$(git_root)" || die "init must be run inside a git repository"
+
+  local stack
+  stack="$(resolve_stack)"
+  local ref
+  ref="$(stack_ref "$stack")"
+
+  if [ -z "$repo" ]; then
+    repo="$(git_origin_repo || true)"
+  else
+    repo="$(norm_repo "$repo")"
+  fi
+
+  local owner=""
+  local -a layer_names=() layer_vers=()
+
+  if [ -n "$repo" ]; then
+    local reg="$stack/stack/mission-control/registry.yaml"
+    local key val
+    while IFS=$'\t' read -r key val; do
+      case "$key" in
+        id)     [ -z "$id" ] && id="$val" ;;
+        owner)  owner="$val" ;;
+        domain) [ -z "$domain" ] && domain="$val" ;;
+        layer.*)
+          layer_names+=("${key#layer.}")
+          layer_vers+=("$val")
+          ;;
+      esac
+    done < <(registry_lookup "$reg" "$repo" || true)
+  fi
+
+  if [ -z "$owner" ] && [ -n "$repo" ] && [ "${repo#*/}" != "$repo" ]; then
+    owner="${repo%%/*}"
+  fi
+  if [ -z "$id" ]; then
+    if [ -n "$repo" ]; then
+      id="${repo#*/}"
+    else
+      id="$(basename -- "$root")"
+    fi
+  fi
+  if [ -z "$domain" ]; then
+    domain="rio"
+    note "domain not in the registry; defaulting to 'rio' (edit the manifest if that's wrong)"
+  fi
+  if [ -z "$repo" ]; then
+    note "no origin remote and no --repo; leaving repo empty — fill it in before onboarding"
+  fi
+
+  local layers_yaml="{}"
+  if [ "${#layer_names[@]}" -gt 0 ]; then
+    layers_yaml=""
+    local i
+    for i in "${!layer_names[@]}"; do
+      layers_yaml="${layers_yaml}
+    ${layer_names[$i]}: \"${layer_vers[$i]}\""
+    done
+  fi
+
+  local repo_yaml="null"
+  [ -n "$repo" ] && repo_yaml="$(yaml_quote "$repo")"
+
+  local manifest
+  manifest=$(cat <<EOF
+# rio.project.yaml — the project's lock against rio.stack (schema rio.project/v1, rio.stack#28).
+# Mission control reads this file at the repo root. \`rioctl init\` also keeps a copy under .rio/.
+schema: rio.project/v1
+id: $(yaml_quote "$id")
+owner: $(yaml_quote "$owner")
+repo: ${repo_yaml}
+domain: $(yaml_quote "$domain")
+stack:
+  ref: $(yaml_quote "$ref")
+  layers: ${layers_yaml}
+exceptions: []
+EOF
+)
+
+  local lock_layers=""
+  local lname lver
+  while IFS=$'\t' read -r lname lver; do
+    [ -n "$lname" ] || continue
+    lock_layers="${lock_layers}  ${lname}: \"${lver}\""$'\n'
+  done < <(layer_versions "$stack")
+  [ -n "$lock_layers" ] || lock_layers="  {}"$'\n'
+
+  local lock
+  lock=$(cat <<EOF
+# .rio/stack.lock — which rio.stack commit and layer versions this project is pinned to.
+# Written by \`rioctl init\`. \`rioctl sync\` (rio.stack#30) will later offer updates against this file.
+schema: rio.stack.lock/v1
+stack:
+  repo: riolabs-ai/rio.stack
+  pin: $(yaml_quote "$ref")
+  ref: $(yaml_quote "$ref")
+layers:
+${lock_layers}
+EOF
+)
+
+  local overrides_readme
+  overrides_readme=$(cat <<'OVERRIDES_README'
+Local, uncommitted overrides for this project. Nothing in this directory is a
+secret — credentials belong in bws (or the tool's own store), never here.
+OVERRIDES_README
+)
+  local overrides_gi
+  overrides_gi=$(cat <<'OVERRIDES_GI'
+*
+!.gitignore
+!README.md
+OVERRIDES_GI
+)
+
+  local mode="preview"
+  [ "$write" -eq 1 ] && mode="write"
+  note "init $id  [$mode]  root=$root  stack=$ref"
+
+  _init_put() {
+    local dest="$1" content="$2"
+    if [ "$write" -eq 0 ]; then
+      step would "$dest"
+      return 0
+    fi
+    if [ -e "$dest" ] && [ "$force" -eq 0 ]; then
+      if [ "$(cat "$dest")" = "$content" ]; then
+        step keep "$dest (unchanged)"
+        return 0
+      fi
+      step FAIL "$dest exists (pass --force to overwrite)"
+      return 1
+    fi
+    mkdir -p "$(dirname -- "$dest")"
+    printf '%s\n' "$content" > "$dest"
+    step write "$dest"
+  }
+
+  printf '\n--- rio.project.yaml ---\n%s\n' "$manifest"
+  printf '\n--- .rio/stack.lock ---\n%s\n' "$lock"
+  printf '\n'
+
+  local rc=0
+  _init_put "$root/rio.project.yaml" "$manifest" || rc=1
+  _init_put "$root/.rio/rio.project.yaml" "$manifest" || rc=1
+  _init_put "$root/.rio/stack.lock" "$lock" || rc=1
+  _init_put "$root/.rio/overrides/README.md" "$overrides_readme" || rc=1
+  _init_put "$root/.rio/overrides/.gitignore" "$overrides_gi" || rc=1
+
+  if [ "$write" -eq 0 ]; then
+    note "preview — nothing written. Re-run with --write to apply."
+    return 0
+  fi
+  if [ "$rc" -ne 0 ]; then
+    die "init refused to overwrite existing files (see FAIL lines). Pass --force to overwrite."
+  fi
+  note "applied. Mission control will treat this repo as onboarded once this file is committed."
+}
+
+cmd_sync() {
+  local stack root ref
+  stack="$(resolve_stack)"
+  ref="$(stack_ref "$stack")"
+  cat <<EOF
+rioctl sync: trickle-down is not implemented yet (rio.stack#30).
+preview only — would not write files or open PRs.
+
+stack checkout: $stack @ $ref
+EOF
+  if root="$(git_root)"; then
+    printf 'project root:  %s\n' "$root"
+    if [ -f "$root/rio.project.yaml" ]; then
+      printf 'manifest:      %s\n' "$root/rio.project.yaml"
+    else
+      printf 'manifest:      missing (run rioctl init)\n'
+    fi
+    if [ -f "$root/.rio/stack.lock" ]; then
+      printf 'lock:          %s\n' "$root/.rio/stack.lock"
+    fi
+  else
+    printf 'project root:  (not inside a git repo)\n'
+  fi
+
+  printf '\navailable layers in the current stack:\n'
+  local lname lver have_any=0
+  while IFS=$'\t' read -r lname lver; do
+    [ -n "$lname" ] || continue
+    have_any=1
+    printf '  %-22s %s\n' "$lname" "$lver"
+  done < <(layer_versions "$stack")
+  [ "$have_any" -eq 1 ] || printf '  (none found — pyyaml missing or no *-lock.yaml)\n'
+
+  if [ -n "${root:-}" ] && [ -f "$root/rio.project.yaml" ] && have "$PYTHON" \
+      && "$PYTHON" -c 'import yaml' 2>/dev/null; then
+    printf '\ndrift against rio.project.yaml:\n'
+    "$PYTHON" - "$root/rio.project.yaml" "$stack/stack" <<'PYDRIFT'
+import sys, pathlib, yaml
+man = yaml.safe_load(open(sys.argv[1])) or {}
+have = (man.get("stack") or {}).get("layers") or {}
+avail = {}
+for lock in sorted(pathlib.Path(sys.argv[2]).glob("*/*lock*.yaml")):
+    d = yaml.safe_load(lock.read_text()) or {}
+    if d.get("layer") and d.get("version") is not None:
+        avail[d["layer"]] = str(d["version"])
+if not have:
+    print("  (manifest pins no layers — nothing would trickle down)")
+    sys.exit(0)
+drift = 0
+for layer, ver in have.items():
+    cur = avail.get(layer)
+    if cur is None:
+        print(f"  {layer}: pinned {ver}, layer no longer in the stack")
+        drift += 1
+    elif str(ver) != cur:
+        print(f"  {layer}: {ver} -> {cur}  (would open a trickle-down PR)")
+        drift += 1
+    else:
+        print(f"  {layer}: {ver} (current)")
+if drift == 0:
+    print("  no drift — nothing to offer")
+PYDRIFT
+  fi
+  printf '\nnothing opened, nothing written.\n'
+}
+
+cmd_promote() {
+  local stack root id="(unknown)"
+  stack="$(resolve_stack)"
+  root="$(git_root || true)"
+  if [ -n "$root" ] && [ -f "$root/rio.project.yaml" ] && have "$PYTHON" \
+      && "$PYTHON" -c 'import yaml' 2>/dev/null; then
+    id="$("$PYTHON" - "$root/rio.project.yaml" <<'PYID'
+import sys, yaml
+m = yaml.safe_load(open(sys.argv[1])) or {}
+print(m.get("id") or "")
+PYID
+)"
+  elif [ -n "$root" ]; then
+    id="$(basename -- "$root")"
+  fi
+  cat <<EOF
+rioctl promote: promote-up is not implemented yet (rio.stack#29).
+would open a PR against riolabs-ai/rio.stack (never merge it):
+
+  from:    ${root:-'(current project)'}  (${id})
+  to:      riolabs-ai/rio.stack
+  branch:  feat/${id}-<layer>
+  title:   feat(<layer>): promote refinement from ${id}
+  body:    What was proven in ${id}, why it belongs in the layer, how verify.sh covers it.
+           Refs #29.
+
+nothing opened, nothing pushed. Name the layer and the files when this is implemented.
+EOF
+}
+
+main() {
+  local cmd="${1:-help}"
+  if [ $# -gt 0 ]; then shift; fi
+  case "$cmd" in
+    init)            cmd_init "$@" ;;
+    status)          cmd_status "$@" ;;
+    sync)            cmd_sync "$@" ;;
+    promote)         cmd_promote "$@" ;;
+    doctor)          cmd_doctor "$@" ;;
+    version|--version|-V) cmd_version "$@" ;;
+    help|-h|--help)  cmd_help ;;
+    *)               usage_err "unknown command: $cmd" ;;
+  esac
+}
+
+main "$@"
