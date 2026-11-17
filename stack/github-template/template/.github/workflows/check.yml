@@ -1,0 +1,33 @@
+# Fails if a template placeholder survived rendering, or a YAML file does not parse.
+name: check
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: No leftover placeholders
+        run: |
+          if grep -rnE '\{\{[A-Z][A-Z0-9_]*\}\}' --exclude-dir=.git .; then
+            echo "::error::Unrendered placeholders found (see above)."
+            exit 1
+          fi
+      - name: YAML parses
+        run: |
+          python3 - <<'PY'
+          import pathlib, sys, yaml
+          bad = 0
+          for p in pathlib.Path(".").rglob("*.y*ml"):
+              if ".git" in p.parts:
+                  continue
+              try:
+                  yaml.safe_load(p.read_text())
+              except Exception as e:
+                  print(f"::error file={p}::{e}"); bad += 1
+          sys.exit(1 if bad else 0)
+          PY

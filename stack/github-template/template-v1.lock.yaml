@@ -1,0 +1,52 @@
+# GitHub account/org standardization template — v1 lock.
+#
+# Pins the shape of this layer: which files a rendered <owner>/.github carries and which
+# placeholders exist. Adding or renaming a placeholder is a change to this lock in the same
+# commit; verify.sh fails when template/, values.example.yaml and this file disagree.
+schema: stack/v1
+layer: github-template
+version: "1.0.0"
+provider: github
+
+source:
+  derived_from: ai-seo-society/.github
+  commit: 30bec414627f0ca4115a29d10c546f06a807baad
+  license: none            # no LICENSE file: structure only, every word here is original
+  notes: DECOMPOSITION.md
+
+pinned:
+  files:
+    - README.md
+    - DECOMPOSITION.md
+    - values.example.yaml
+    - render.sh
+    - verify.sh
+    - labels-sync.sh
+    - template/README.md
+    - template/profile/README.md
+    - template/CODE_OF_CONDUCT.md
+    - template/CONTRIBUTING.md
+    - template/SECURITY.md
+    - template/SUPPORT.md
+    - template/FUNDING.yml
+    - template/labels.yml
+    - template/.gitattributes
+    - template/.gitignore
+    - template/.github/ISSUE_TEMPLATE/config.yml
+    - template/.github/ISSUE_TEMPLATE/bug.yml
+    - template/.github/ISSUE_TEMPLATE/feature.yml
+    - template/.github/ISSUE_TEMPLATE/chore.yml
+    - template/.github/PULL_REQUEST_TEMPLATE.md
+    - template/.github/workflows/check.yml
+    - template/workflow-templates/ci.yml
+    - template/workflow-templates/ci.properties.json
+  placeholders:
+    [ORG_NAME, DISPLAY_NAME, TAGLINE, ABOUT, FOCUS, HOME_SCOPE, RELATED_ORG, RELATED_SCOPE,
+     LOCATION, CONTACT_LINE, CONTACT_EMAIL, SECURITY_EMAIL, SECURITY_RESPONSE, SUPPORT_LEVEL,
+     AVATAR_FILE]
+  render_only: [ACCOUNT_KIND, AVATAR_SOURCE]   # read by render.sh, never substituted
+
+consumers:
+  - owner: jadenblack
+    kind: user
+    tracked_in: jadenblack/ops#10

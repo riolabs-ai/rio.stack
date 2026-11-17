@@ -1,0 +1,17 @@
+# Standard label set for every {{ORG_NAME}} repository.
+# Apply with: bash stack/github-template/labels-sync.sh --repo {{ORG_NAME}}/<repo> --file labels.yml [--apply]
+# The sync only creates or updates; it never deletes a label.
+- {name: bug, color: d73a4a, description: Something isn't working}
+- {name: enhancement, color: a2eeef, description: New feature or request}
+- {name: documentation, color: 0075ca, description: Docs only}
+- {name: chore, color: ededed, description: Maintenance, tooling, housekeeping}
+- {name: question, color: d876e3, description: Further information is requested}
+- {name: security, color: b60205, description: Security-relevant change or report}
+- {name: dependencies, color: 0366d6, description: Dependency updates}
+- {name: good first issue, color: 7057ff, description: Good for newcomers}
+- {name: help wanted, color: "008672", description: Extra attention is needed}
+- {name: p0, color: d93f0b, description: "Priority: now"}
+- {name: p1, color: fbca04, description: "Priority: next"}
+- {name: p2, color: bfd4f2, description: "Priority: later"}
+- {name: wontfix, color: ffffff, description: This will not be worked on}
+- {name: duplicate, color: cfd3d7, description: Already tracked elsewhere}

@@ -1,0 +1,4 @@
+# local-only notes never reach this public repo
+_private/
+*.private.*
+.DS_Store
