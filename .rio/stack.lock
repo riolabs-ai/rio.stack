@@ -1,5 +1,5 @@
 # .rio/stack.lock — which rio.stack commit and layer versions this project is pinned to.
-# Written by `rio init`. `rio sync` (rio.stack#30) will later offer updates against this file.
+# Written by `rioctl init`. `rioctl sync` (rio.stack#30) will later offer updates against this file.
 schema: rio.stack.lock/v1
 stack:
   repo: riolabs-ai/rio.stack

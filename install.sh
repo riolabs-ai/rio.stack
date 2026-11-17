@@ -1,5 +1,5 @@
 #!/bin/sh
-# install.sh — user-level rio CLI bootstrap. Idempotent.
+# install.sh — user-level rioctl bootstrap. Idempotent.
 #
 #   curl -fsSL https://raw.githubusercontent.com/riolabs-ai/rio.stack/main/install.sh | sh
 #   sh install.sh --dry-run
@@ -9,7 +9,7 @@
 # Creates $RIO_HOME (default ~/.rio):
 #   stack/        pinned rio.stack checkout (default pin: main)
 #   config.yaml   identities + provider auth references — NEVER secrets
-#   bin/rio       symlink to stack/bin/rio
+#   bin/rioctl    symlink to stack/bin/rioctl
 #
 # This script WRITES the home by default (that's the curl|sh contract).
 # --dry-run prints the plan and writes nothing.
@@ -72,7 +72,7 @@ while [ $# -gt 0 ]; do
 done
 
 # Prefer a local checkout when the script lives in one and --from was not given.
-if [ -z "$FROM" ] && [ -n "$HERE" ] && [ -d "$HERE/stack" ] && [ -f "$HERE/bin/rio" -o -f "$HERE/install.sh" ]; then
+if [ -z "$FROM" ] && [ -n "$HERE" ] && [ -d "$HERE/stack" ] && [ -f "$HERE/bin/rioctl" ] || [ -f "$HERE/install.sh" ]; then
   FROM="$HERE"
 fi
 [ -n "$FROM" ] || FROM="$DEFAULT_SOURCE"
@@ -95,7 +95,7 @@ fi
 STACK="$RIO_HOME/stack"
 BIN="$RIO_HOME/bin"
 CONF="$RIO_HOME/config.yaml"
-RIO_BIN="$BIN/rio"
+RIO_BIN="$BIN/rioctl"
 SHELL_RC="${HOME}/.bashrc"
 PATH_LINE="export PATH=\"${RIO_HOME}/bin:\$PATH\""
 
@@ -290,8 +290,8 @@ else
   step write "$CONF"
 fi
 
-# bin/rio symlink
-TARGET="$STACK/bin/rio"
+# bin/rioctl symlink
+TARGET="$STACK/bin/rioctl"
 if would; then
   step would "symlink $RIO_BIN -> $TARGET"
 else
@@ -306,15 +306,6 @@ fi
 # PATH hint — printed always; shell rc only with --write and not --dry-run
 note "add this to your PATH (this script will not edit shell rc unless you pass --write):"
 printf '  %s\n' "$PATH_LINE"
-# A different `rio` already on PATH (on prodesk: ~/.local/bin/rio launches the Hermes rio profile)
-# must not be silently shadowed.
-if command -v rio >/dev/null 2>&1; then
-  existing=$(command -v rio)
-  if [ "$existing" != "$RIO_BIN" ] && [ "$(readlink -f "$existing" 2>/dev/null || printf '%s' "$existing")" != "$(readlink -f "$RIO_BIN" 2>/dev/null || printf '%s' "$RIO_BIN")" ]; then
-    note "warning: $existing is already on PATH and is not this CLI."
-    note "putting $RIO_HOME/bin first on PATH would shadow it. Call this CLI as $RIO_HOME/bin/rio until a name is decided."
-  fi
-fi
 
 if [ "$WRITE_RC" -eq 1 ]; then
   if would; then
@@ -323,7 +314,7 @@ if [ "$WRITE_RC" -eq 1 ]; then
     if [ -f "$SHELL_RC" ] && grep -F -q "$RIO_HOME/bin" "$SHELL_RC"; then
       step keep "$SHELL_RC already mentions $RIO_HOME/bin"
     else
-      printf '\n# rio CLI (install.sh)\n%s\n' "$PATH_LINE" >> "$SHELL_RC"
+      printf '\n# rioctl (install.sh)\n%s\n' "$PATH_LINE" >> "$SHELL_RC"
       step write "appended PATH to $SHELL_RC"
     fi
   fi

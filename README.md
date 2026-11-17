@@ -15,15 +15,15 @@ from, so `main` must always keep at least one commit: an empty repository has no
 curl -fsSL https://raw.githubusercontent.com/riolabs-ai/rio.stack/main/install.sh | sh
 ```
 
-Creates `~/.rio/` (pinned stack checkout, `config.yaml`, `bin/rio`) and prints a PATH
+Creates `~/.rio/` (pinned stack checkout, `config.yaml`, `bin/rioctl`) and prints a PATH
 hint. It does not edit shell rc unless you pass `--write`. Preview with
-`sh install.sh --dry-run`. Then, in a project: `rio init` (preview) or
-`rio init --write`. See [`stack/rio-cli/`](stack/rio-cli/).
+`sh install.sh --dry-run`. Then, in a project: `rioctl init` (preview) or
+`rioctl init --write`. See [`stack/rio-cli/`](stack/rio-cli/).
 
 ## Layout
 
 - `stack/` — the pinned, versioned stack layers listed below.
-- `install.sh`, `bin/rio`, `skills/rio/` — the user-level installer and CLI (see rio-cli).
+- `install.sh`, `bin/rioctl`, `skills/rioctl/` — the user-level installer and CLI (see rio-cli).
 - `IDEA.md` — intake: needs, ideas and fixes dumped here before they become issues or
   layers. Not documentation; see the layers for what is actually true.
 
@@ -37,7 +37,7 @@ hint. It does not edit shell rc unless you pass `--write`. Preview with
 | [`stack/github-template/`](stack/github-template/) | **GitHub template v1** — the `.github` base standard for any account or org: profile page, community health defaults, issue/PR forms, starter CI, labels. Placeholders + `render.sh`; first consumer `jadenblack`. | `bash stack/github-template/verify.sh` |
 | [`stack/providers/`](stack/providers/) | Provider capability matrix, config as code, and permission tiers (R-32…R-35). | docs only |
 | [`stack/mission-control/`](stack/mission-control/) | **Mission control v1** — the registry of every Rio project, the `rio.project.yaml` manifest each project carries, and the promote-up / trickle-down loop that keeps them on the stack. Read-only `status.sh`. | `bash stack/mission-control/verify.sh` |
-| [`stack/rio-cli/`](stack/rio-cli/) | **rio CLI v1** — `install.sh` + `rio` (init, status, sync, promote, doctor). User home `~/.rio/`, project `.rio/` + `rio.project.yaml`. Thin agent skill at `skills/rio/`. | `bash stack/rio-cli/verify.sh` |
+| [`stack/rio-cli/`](stack/rio-cli/) | **rioctl v1** — `install.sh` + `rioctl` (init, status, sync, promote, doctor). User home `~/.rio/`, project `.rio/` + `rio.project.yaml`. Thin agent skill at `skills/rioctl/`. `rio` remains the Hermes profile launcher. | `bash stack/rio-cli/verify.sh` |
 | [`stack/agency-agents/`](stack/agency-agents/) | Pinned import of the 9 `paperclipai/companies` division leads as paused, $0-budget agents. | `bash stack/agency-agents/verify.sh` |
 
 Layers that ship software (`bot-profile`, `agency-agents`, `github-template`, `mission-control`, `rio-cli`) follow the same contract: a

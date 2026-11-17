@@ -1,8 +1,9 @@
-# rio CLI — v1 lock.
+# rioctl — v1 lock.
 #
-# Pins the shape of this layer: the installer, the CLI entrypoint, the skill,
-# and the verify script. Adding a subcommand or changing the ~/.rio or .rio/
-# layout is a change to this lock in the same commit.
+# Pins the shape of this layer: the installer, the rioctl entrypoint, the skill,
+# and the verify script. The command name is rioctl; `rio` is reserved for the
+# Hermes rio-profile launcher. Adding a subcommand or changing the ~/.rio or
+# .rio/ layout is a change to this lock in the same commit.
 schema: stack/v1
 layer: rio-cli
 version: "1.0.0"
@@ -10,14 +11,14 @@ version: "1.0.0"
 pinned:
   files:
     - ../../install.sh
-    - ../../bin/rio
-    - ../../skills/rio/SKILL.md
+    - ../../bin/rioctl
+    - ../../skills/rioctl/SKILL.md
     - README.md
     - verify.sh
   user_home:
     dir: ~/.rio
     env: RIO_HOME
-    contents: [stack/, config.yaml, bin/rio]
+    contents: [stack/, config.yaml, bin/rioctl]
   project:
     manifest: rio.project.yaml          # also mirrored at .rio/rio.project.yaml
     manifest_schema: rio.project/v1
@@ -28,7 +29,7 @@ pinned:
     install_preview: --dry-run          # install.sh writes by default (curl|sh)
     install_path_rc: --write            # the only flag that edits shell rc
     init_apply: --write                 # init previews by default
-  skill: skills/rio/SKILL.md
+  skill: skills/rioctl/SKILL.md
 
 boundaries:
   secrets: forbidden                    # config.yaml is references only

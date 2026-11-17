@@ -1,10 +1,13 @@
-# rio CLI — user + project bootstrap (v1)
+# rioctl — user + project bootstrap (v1)
 
 **Status:** v1. **Tracking:** [rio.stack#40](https://github.com/riolabs-ai/rio.stack/issues/40).
 
 One engine for installing rio.stack on a machine and enrolling a project in it.
-A thin [skill](../../skills/rio/SKILL.md) tells any agent to call the CLI and
+A thin [skill](../../skills/rioctl/SKILL.md) tells any agent to call the CLI and
 read the output, instead of reimplementing it.
+
+`rio` is the Hermes rio-profile launcher (`~/.local/bin/rio` on prodesk). This
+CLI is `rioctl`. The installer does not touch that wrapper.
 
 ## What you get
 
@@ -14,14 +17,14 @@ read the output, instead of reimplementing it.
 | --- | --- |
 | `stack/` | A git checkout of rio.stack, pinned (default `main`) |
 | `config.yaml` | Identities (`jadenblack`, `riolabs-ai`) and provider *references*. Never secrets. |
-| `bin/rio` | Symlink to `stack/bin/rio` |
+| `bin/rioctl` | Symlink to `stack/bin/rioctl` |
 
 `install.sh` writes the home by default (the `curl | sh` contract). `--dry-run`
 prints the plan and writes nothing. It prints a PATH hint; it never edits shell
 rc unless you pass `--write` (appends one `export PATH` line to `~/.bashrc` if
 missing).
 
-**Project level, per repo.** `rio init` creates:
+**Project level, per repo.** `rioctl init` creates:
 
 | Path | What it is |
 | --- | --- |
@@ -32,9 +35,9 @@ missing).
 
 Preview by default; `--write` applies. `--force` overwrites.
 
-**The loop (stubs in v1).** `rio sync` previews trickle-down (#30). `rio promote`
+**The loop (stubs in v1).** `rioctl sync` previews trickle-down (#30). `rioctl promote`
 prints the PR it would open against this repo (#29). Neither writes nor pushes.
-`rio status` wraps `stack/mission-control/status.sh`.
+`rioctl status` wraps `stack/mission-control/status.sh`.
 
 ## Use it
 
@@ -44,12 +47,12 @@ sh install.sh --dry-run --home /tmp/rio-test --from . --worktree
 sh install.sh --home /tmp/rio-test --from . --worktree
 
 export PATH="/tmp/rio-test/bin:$PATH"
-rio doctor
-rio init                 # preview
-rio init --write         # apply, inside a git repo
-rio status --offline
-rio sync
-rio promote
+rioctl doctor
+rioctl init                 # preview
+rioctl init --write         # apply, inside a git repo
+rioctl status --offline
+rioctl sync
+rioctl promote
 ```
 
 Or, once this is on `main`:
@@ -59,7 +62,7 @@ curl -fsSL https://raw.githubusercontent.com/riolabs-ai/rio.stack/main/install.s
 ```
 
 Env: `RIO_HOME`, `RIO_STACK_URL` / `--from`, `RIO_STACK_REF` / `--ref`, `RIO_STACK`
-(overrides the checkout `bin/rio` resolves). `--worktree` overlays uncommitted
+(overrides the checkout `bin/rioctl` resolves). `--worktree` overlays uncommitted
 files from a local `--from` path; it is a dev/test flag, not needed for a
 normal clone.
 
@@ -69,35 +72,26 @@ normal clone.
 bash stack/rio-cli/verify.sh
 ```
 
-Installs into a throwaway `RIO_HOME`, runs `rio init` preview and `--write` in a
+Installs into a throwaway `RIO_HOME`, runs `rioctl init` preview and `--write` in a
 temp git repo, checks the files, and deletes the temps. It never touches
-`~/.rio` or `~/.bashrc`.
+`~/.rio`, `~/.bashrc`, or the Hermes `rio` wrapper.
 
 ## Layout
 
 ```
 install.sh                 POSIX sh; user-level home. Dry-run with --dry-run
-bin/rio                    the CLI (bash)
-skills/rio/SKILL.md        thin agent skill — no duplicated logic
+bin/rioctl                 the CLI (bash)
+skills/rioctl/SKILL.md     thin agent skill — no duplicated logic
 stack/rio-cli/README.md    this file
 stack/rio-cli/verify.sh    the proof
 stack/rio-cli/rio-cli-v1.lock.yaml
 ```
 
-
-## Name collision
-
-On prodesk, `~/.local/bin/rio` already launches the Hermes `rio` profile
-(`hermes -p rio`). `install.sh` does not touch that wrapper. Putting
-`$RIO_HOME/bin` first on PATH would shadow it; `install.sh` and `rio doctor`
-warn when they see the clash. Call this CLI as `$RIO_HOME/bin/rio` or
-`./bin/rio` until we decide whether to rename the CLI or the wrapper.
-
 ## Who changes what
 
 - **Identities / provider refs**: the user's `~/.rio/config.yaml` (never commit it,
   never put a secret in it).
-- **A project's pin**: `rio.project.yaml` and `.rio/stack.lock`, via `rio init`
-  or a later `rio sync` PR.
+- **A project's pin**: `rio.project.yaml` and `.rio/stack.lock`, via `rioctl init`
+  or a later `rioctl sync` PR.
 - **The CLI itself**: files above, plus a lock and verify change in the same
   commit.

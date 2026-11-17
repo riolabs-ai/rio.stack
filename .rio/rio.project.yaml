@@ -1,5 +1,5 @@
 # rio.project.yaml — the project's lock against rio.stack (schema rio.project/v1, rio.stack#28).
-# Mission control reads this file at the repo root. `rio init` also keeps a copy under .rio/.
+# Mission control reads this file at the repo root. `rioctl init` also keeps a copy under .rio/.
 schema: rio.project/v1
 id: rio-stack
 owner: riolabs-ai

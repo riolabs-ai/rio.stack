@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
-# rio — project and user bootstrap for rio.stack.
+# rioctl — project and user bootstrap for rio.stack.
 #
-#   rio init              preview .rio/ + rio.project.yaml (pass --write to apply)
-#   rio status            wrap stack/mission-control/status.sh
-#   rio sync              preview-only stub of trickle-down (rio.stack#30)
-#   rio promote           stub: print the PR it would open (rio.stack#29)
-#   rio doctor            check gh, git, python, the rio home
-#   rio version | help
+#   rioctl init              preview .rio/ + rio.project.yaml (pass --write to apply)
+#   rioctl status            wrap stack/mission-control/status.sh
+#   rioctl sync              preview-only stub of trickle-down (rio.stack#30)
+#   rioctl promote           stub: print the PR it would open (rio.stack#29)
+#   rioctl doctor            check gh, git, python, the rio home
+#   rioctl version | help
+#
+# `rio` is the Hermes rio-profile launcher (~/.local/bin/rio) and is not this CLI.
 #
 # Env: RIO_HOME (default ~/.rio), RIO_STACK (override the stack checkout), PYTHON
 set -euo pipefail
@@ -16,9 +18,9 @@ DEFAULT_HOME="${HOME}/.rio"
 RIO_HOME="${RIO_HOME:-$DEFAULT_HOME}"
 PYTHON="${PYTHON:-python3}"
 
-die()  { printf 'rio: %s\n' "$*" >&2; exit 1; }
-usage_err() { printf 'rio: %s\n' "$*" >&2; cmd_help >&2; exit 2; }
-note() { printf 'rio: %s\n' "$*"; }
+die()  { printf 'rioctl: %s\n' "$*" >&2; exit 1; }
+usage_err() { printf 'rioctl: %s\n' "$*" >&2; cmd_help >&2; exit 2; }
+note() { printf 'rioctl: %s\n' "$*"; }
 step() { printf '  %-8s %s\n' "$1" "$2"; }
 
 resolve_self() {
@@ -154,16 +156,18 @@ yaml_quote() {
 
 cmd_help() {
   cat <<'H'
-rio — bootstrap and operate a project against rio.stack
+rioctl — bootstrap and operate a project against rio.stack
 
 Usage:
-  rio init [--write] [--force] [--id ID] [--repo OWNER/NAME] [--domain DOMAIN]
-  rio status [--offline] [--json] [--registry FILE]
-  rio sync
-  rio promote
-  rio doctor
-  rio version
-  rio help
+  rioctl init [--write] [--force] [--id ID] [--repo OWNER/NAME] [--domain DOMAIN]
+  rioctl status [--offline] [--json] [--registry FILE]
+  rioctl sync
+  rioctl promote
+  rioctl doctor
+  rioctl version
+  rioctl help
+
+`rio` is the Hermes rio-profile launcher, not this CLI.
 
 init is preview-only unless --write is passed. sync and promote are stubs in v1
 (they print the plan and never open a PR). status wraps mission-control status.sh.
@@ -175,7 +179,7 @@ H
 cmd_version() {
   local stack
   stack="$(resolve_stack 2>/dev/null || true)"
-  printf 'rio %s\n' "$VERSION"
+  printf 'rioctl %s\n' "$VERSION"
   if [ -n "$stack" ]; then
     printf 'stack %s @ %s\n' "$stack" "$(stack_ref "$stack")"
   fi
@@ -184,7 +188,7 @@ cmd_version() {
 cmd_doctor() {
   local fail=0
   local stack=""
-  printf 'rio doctor\n'
+  printf 'rioctl doctor\n'
   if have git; then
     step ok "git $(git --version | awk '{print $3}')"
   else
@@ -229,25 +233,34 @@ cmd_doctor() {
   fi
 
   if [ -d "$RIO_HOME" ]; then
-    if [ -L "$RIO_HOME/bin/rio" ] || [ -f "$RIO_HOME/bin/rio" ]; then
-      step ok "RIO_HOME $RIO_HOME (bin/rio present)"
+    if [ -L "$RIO_HOME/bin/rioctl" ] || [ -f "$RIO_HOME/bin/rioctl" ]; then
+      step ok "RIO_HOME $RIO_HOME (bin/rioctl present)"
     else
-      step warn "RIO_HOME $RIO_HOME exists but bin/rio is missing (re-run install.sh)"
+      step warn "RIO_HOME $RIO_HOME exists but bin/rioctl is missing (re-run install.sh)"
     fi
   else
-    step warn "RIO_HOME $RIO_HOME not installed (ok if you are running ./bin/rio from a checkout)"
+    step warn "RIO_HOME $RIO_HOME not installed (ok if you are running ./bin/rioctl from a checkout)"
   fi
 
+  if have rioctl; then
+    step ok "rioctl on PATH: $(command -v rioctl)"
+  else
+    step warn "rioctl not on PATH (add $RIO_HOME/bin, or call it as $RIO_HOME/bin/rioctl)"
+  fi
+
+  # `rio` is reserved for the Hermes rio-profile launcher. Confirm it has not
+  # been replaced by this CLI (or anything else).
   if have rio; then
     local rio_path
     rio_path="$(command -v rio)"
-    if "$rio_path" version 2>/dev/null | grep -q '^rio 1\.'; then
-      step ok "rio on PATH: $rio_path"
+    if grep -qE 'hermes[[:space:]].*-p[[:space:]]+rio' "$rio_path" 2>/dev/null; then
+      step ok "rio on PATH is the Hermes rio-profile wrapper ($rio_path)"
     else
-      step warn "rio on PATH is $rio_path — not this CLI (on this machine it may be the Hermes rio-profile wrapper). Use $RIO_HOME/bin/rio or ./bin/rio so it is not shadowed."
+      step FAIL "rio on PATH is $rio_path, not the Hermes rio-profile wrapper (leave ~/.local/bin/rio alone)"
+      fail=1
     fi
   else
-    step warn "rio not on PATH (add $RIO_HOME/bin, or call it as $RIO_HOME/bin/rio)"
+    step warn "rio is not on PATH (expected the Hermes rio-profile wrapper; this CLI is rioctl)"
   fi
 
   local root
@@ -258,7 +271,7 @@ cmd_doctor() {
     if [ -n "$flags" ]; then
       step ok "project $root ($flags )"
     else
-      step warn "project $root has no rio.project.yaml or .rio/ — run rio init"
+      step warn "project $root has no rio.project.yaml or .rio/ — run rioctl init"
     fi
   else
     step warn "not inside a git repo"
@@ -289,7 +302,7 @@ cmd_init() {
       --id)     id="${2:?--id needs a value}"; shift 2 ;;
       --repo)   repo="${2:?--repo needs a value}"; shift 2 ;;
       --domain) domain="${2:?--domain needs a value}"; shift 2 ;;
-      -h|--help) note "rio init [--write] [--force] [--id ID] [--repo OWNER/NAME] [--domain DOMAIN]"; return 0 ;;
+      -h|--help) note "rioctl init [--write] [--force] [--id ID] [--repo OWNER/NAME] [--domain DOMAIN]"; return 0 ;;
       *)        usage_err "init: unknown argument: $1" ;;
     esac
   done
@@ -361,7 +374,7 @@ cmd_init() {
   local manifest
   manifest=$(cat <<EOF
 # rio.project.yaml — the project's lock against rio.stack (schema rio.project/v1, rio.stack#28).
-# Mission control reads this file at the repo root. \`rio init\` also keeps a copy under .rio/.
+# Mission control reads this file at the repo root. \`rioctl init\` also keeps a copy under .rio/.
 schema: rio.project/v1
 id: $(yaml_quote "$id")
 owner: $(yaml_quote "$owner")
@@ -385,7 +398,7 @@ EOF
   local lock
   lock=$(cat <<EOF
 # .rio/stack.lock — which rio.stack commit and layer versions this project is pinned to.
-# Written by \`rio init\`. \`rio sync\` (rio.stack#30) will later offer updates against this file.
+# Written by \`rioctl init\`. \`rioctl sync\` (rio.stack#30) will later offer updates against this file.
 schema: rio.stack.lock/v1
 stack:
   repo: riolabs-ai/rio.stack
@@ -459,7 +472,7 @@ cmd_sync() {
   stack="$(resolve_stack)"
   ref="$(stack_ref "$stack")"
   cat <<EOF
-rio sync: trickle-down is not implemented yet (rio.stack#30).
+rioctl sync: trickle-down is not implemented yet (rio.stack#30).
 preview only — would not write files or open PRs.
 
 stack checkout: $stack @ $ref
@@ -469,7 +482,7 @@ EOF
     if [ -f "$root/rio.project.yaml" ]; then
       printf 'manifest:      %s\n' "$root/rio.project.yaml"
     else
-      printf 'manifest:      missing (run rio init)\n'
+      printf 'manifest:      missing (run rioctl init)\n'
     fi
     if [ -f "$root/.rio/stack.lock" ]; then
       printf 'lock:          %s\n' "$root/.rio/stack.lock"
@@ -536,7 +549,7 @@ PYID
     id="$(basename -- "$root")"
   fi
   cat <<EOF
-rio promote: promote-up is not implemented yet (rio.stack#29).
+rioctl promote: promote-up is not implemented yet (rio.stack#29).
 would open a PR against riolabs-ai/rio.stack (never merge it):
 
   from:    ${root:-'(current project)'}  (${id})

@@ -3,9 +3,9 @@
 #
 #   bash stack/rio-cli/verify.sh
 #
-# Installs into a throwaway RIO_HOME, runs `rio init` preview and --write in a
+# Installs into a throwaway RIO_HOME, runs `rioctl init` preview and --write in a
 # temp git repo, checks the files, and deletes the temps. Never touches the
-# real ~/.rio or ~/.bashrc.
+# real ~/.rio, ~/.bashrc, or the Hermes rio wrapper.
 set -euo pipefail
 
 HERE="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -24,10 +24,13 @@ fi
 
 REAL_HOME="${HOME}/.rio"
 REAL_RC="${HOME}/.bashrc"
+REAL_RIO="${HOME}/.local/bin/rio"
 before_home=""
 before_rc=""
+before_rio=""
 [ -e "$REAL_HOME" ] && before_home="$(ls -la "$REAL_HOME" 2>/dev/null; stat -c '%Y %s %n' "$REAL_HOME" 2>/dev/null || true)"
 [ -e "$REAL_RC" ] && before_rc="$(stat -c '%Y %s %n' "$REAL_RC" 2>/dev/null || true)"
+[ -e "$REAL_RIO" ] && before_rio="$(stat -c '%Y %s %n' "$REAL_RIO" 2>/dev/null; sha256sum "$REAL_RIO" 2>/dev/null || true)"
 
 TMP="$(mktemp -d /tmp/rio-cli-verify.XXXXXX)"
 trap 'rm -rf "$TMP"' EXIT
@@ -39,10 +42,10 @@ echo "verify: rio-cli v1  (tmp $TMP)"
 # --- 1. syntax --------------------------------------------------------------
 echo "-- syntax"
 if sh -n "$ROOT/install.sh"; then ok "install.sh sh -n"; else bad "install.sh sh -n"; fi
-if bash -n "$ROOT/bin/rio"; then ok "bin/rio bash -n"; else bad "bin/rio bash -n"; fi
+if bash -n "$ROOT/bin/rioctl"; then ok "bin/rioctl bash -n"; else bad "bin/rioctl bash -n"; fi
 if bash -n "$HERE/verify.sh"; then ok "verify.sh bash -n"; else bad "verify.sh bash -n"; fi
 if command -v shellcheck >/dev/null 2>&1; then
-  if shellcheck -s sh "$ROOT/install.sh" && shellcheck -s bash "$ROOT/bin/rio" "$HERE/verify.sh"; then
+  if shellcheck -s sh "$ROOT/install.sh" && shellcheck -s bash "$ROOT/bin/rioctl" "$HERE/verify.sh"; then
     ok "shellcheck"
   else
     bad "shellcheck"
@@ -56,7 +59,7 @@ echo "-- hygiene"
 secrets="$(
   grep -rInE 'BEGIN [A-Z ]*PRIVATE KEY|gh[pousr]_[A-Za-z0-9]{20,}|sk-[A-Za-z0-9]{20,}|xox[baprs]-[A-Za-z0-9-]{10,}' \
     --include='*.md' --include='*.yaml' --include='*.yml' --include='*.sh' \
-    "$HERE" "$ROOT/install.sh" "$ROOT/bin/rio" "$ROOT/skills/rio" 2>/dev/null || true
+    "$HERE" "$ROOT/install.sh" "$ROOT/bin/rioctl" "$ROOT/skills/rioctl" 2>/dev/null || true
 )"
 if [ -z "$secrets" ]; then ok "no secret-shaped strings"; else bad "secret-shaped strings found:"; echo "$secrets" | sed 's/^/        /'; fi
 
@@ -76,7 +79,7 @@ fi
 echo "-- lock"
 LOCK="$HERE/rio-cli-v1.lock.yaml"
 if [ -f "$LOCK" ]; then ok "rio-cli-v1.lock.yaml present"; else bad "missing lock"; fi
-for f in install.sh bin/rio skills/rio/SKILL.md stack/rio-cli/README.md stack/rio-cli/verify.sh; do
+for f in install.sh bin/rioctl skills/rioctl/SKILL.md stack/rio-cli/README.md stack/rio-cli/verify.sh; do
   if [ -f "$ROOT/$f" ]; then ok "pinned $f"; else bad "missing $f"; fi
 done
 
@@ -85,7 +88,7 @@ echo "-- install --dry-run"
 mkdir -p "$TEST_HOME"
 if RIO_HOME="$TEST_HOME" sh "$ROOT/install.sh" --dry-run --from "$ROOT" --worktree --ref HEAD >/dev/null; then
   # TEST_HOME may exist (we created it) but should have no stack checkout or config
-  if [ -f "$TEST_HOME/config.yaml" ] || [ -e "$TEST_HOME/bin/rio" ] || [ -d "$TEST_HOME/stack/bin" ]; then
+  if [ -f "$TEST_HOME/config.yaml" ] || [ -e "$TEST_HOME/bin/rioctl" ] || [ -d "$TEST_HOME/stack/bin" ]; then
     bad "dry-run wrote files under $TEST_HOME"
     find "$TEST_HOME" -maxdepth 3 | sed 's/^/        /'
   else
@@ -122,14 +125,19 @@ check_home() {
   if [ -e "$p" ]; then ok "$msg"; else bad "missing $msg ($p)"; fi
 }
 check_home "$TEST_HOME/config.yaml" "config.yaml"
-check_home "$TEST_HOME/bin/rio" "bin/rio"
-check_home "$TEST_HOME/stack/bin/rio" "stack/bin/rio"
-if [ -L "$TEST_HOME/bin/rio" ]; then
-  tgt="$(readlink -f "$TEST_HOME/bin/rio")"
-  exp="$(readlink -f "$TEST_HOME/stack/bin/rio")"
-  if [ "$tgt" = "$exp" ]; then ok "bin/rio symlink target"; else bad "bin/rio points at $tgt (want $exp)"; fi
+check_home "$TEST_HOME/bin/rioctl" "bin/rioctl"
+check_home "$TEST_HOME/stack/bin/rioctl" "stack/bin/rioctl"
+if [ -L "$TEST_HOME/bin/rioctl" ]; then
+  tgt="$(readlink -f "$TEST_HOME/bin/rioctl")"
+  exp="$(readlink -f "$TEST_HOME/stack/bin/rioctl")"
+  if [ "$tgt" = "$exp" ]; then ok "bin/rioctl symlink target"; else bad "bin/rioctl points at $tgt (want $exp)"; fi
 else
-  bad "bin/rio is not a symlink"
+  bad "bin/rioctl is not a symlink"
+fi
+if [ -e "$TEST_HOME/bin/rio" ]; then
+  bad "install created $TEST_HOME/bin/rio (rio is the Hermes wrapper, not this CLI)"
+else
+  ok "install did not create bin/rio"
 fi
 if grep -q "jadenblack" "$TEST_HOME/config.yaml" && grep -q "riolabs-ai" "$TEST_HOME/config.yaml"; then
   ok "config.yaml has both identities"
@@ -142,17 +150,17 @@ else
   ok "config.yaml has no secret-shaped values"
 fi
 
-# --- 6. rio version / help / doctor against the installed CLI --------------
+# --- 6. rioctl version / help / doctor against the installed CLI --------------
 echo "-- cli"
-RIO="$TEST_HOME/bin/rio"
+RIO="$TEST_HOME/bin/rioctl"
 export RIO_HOME="$TEST_HOME"
-if out="$("$RIO" version 2>&1)" && printf '%s\n' "$out" | grep -q '^rio 1\.0\.0'; then
-  ok "rio version: $(printf '%s' "$out" | tr '\n' ' ')"
+if out="$("$RIO" version 2>&1)" && printf '%s\n' "$out" | grep -q '^rioctl 1\.0\.0'; then
+  ok "rioctl version: $(printf '%s' "$out" | tr '\n' ' ')"
 else
-  bad "rio version failed: $out"
+  bad "rioctl version failed: $out"
 fi
-if "$RIO" help >/dev/null; then ok "rio help"; else bad "rio help"; fi
-if "$RIO" doctor; then ok "rio doctor"; else bad "rio doctor"; fi
+if "$RIO" help >/dev/null; then ok "rioctl help"; else bad "rioctl help"; fi
+if "$RIO" doctor; then ok "rioctl doctor"; else bad "rioctl doctor"; fi
 
 # --- 7. init in a temp git repo --------------------------------------------
 echo "-- init preview / write"
@@ -240,19 +248,22 @@ fi
 
 # status --offline should run (uses mission-control from the cached stack)
 if (CDPATH= cd -- "$PROJ" && "$RIO" status --offline >/dev/null); then
-  ok "rio status --offline"
+  ok "rioctl status --offline"
 else
-  bad "rio status --offline failed"
+  bad "rioctl status --offline failed"
 fi
 
 # --- 8. the real ~/.rio and ~/.bashrc were not touched ---------------------
 echo "-- isolation"
 after_home=""
 after_rc=""
+after_rio=""
 [ -e "$REAL_HOME" ] && after_home="$(ls -la "$REAL_HOME" 2>/dev/null; stat -c '%Y %s %n' "$REAL_HOME" 2>/dev/null || true)"
 [ -e "$REAL_RC" ] && after_rc="$(stat -c '%Y %s %n' "$REAL_RC" 2>/dev/null || true)"
+[ -e "$REAL_RIO" ] && after_rio="$(stat -c '%Y %s %n' "$REAL_RIO" 2>/dev/null; sha256sum "$REAL_RIO" 2>/dev/null || true)"
 if [ "$before_home" = "$after_home" ]; then ok "real ~/.rio untouched"; else bad "real ~/.rio changed"; fi
 if [ "$before_rc" = "$after_rc" ]; then ok "real ~/.bashrc untouched"; else bad "real ~/.bashrc changed"; fi
+if [ "$before_rio" = "$after_rio" ]; then ok "Hermes rio wrapper (~/.local/bin/rio) untouched"; else bad "Hermes rio wrapper changed"; fi
 
 echo
 if [ "$fail" -eq 0 ]; then
