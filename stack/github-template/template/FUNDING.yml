@@ -1,0 +1,4 @@
+# Sponsor button for every {{ORG_NAME}} repository. Uncomment a platform to switch it on.
+# github: [{{ORG_NAME}}]
+# ko_fi: your-handle
+# custom: ["https://example.com/support"]

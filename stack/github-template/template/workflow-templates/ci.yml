@@ -1,0 +1,16 @@
+# Starter CI for {{ORG_NAME}} repositories. Offered in the Actions tab of org repos.
+name: ci
+on:
+  push:
+    branches: [$default-branch]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and test
+        run: |
+          echo "Replace with this repo's build and test commands."

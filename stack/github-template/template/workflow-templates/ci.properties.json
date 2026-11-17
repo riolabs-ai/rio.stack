@@ -1,0 +1,6 @@
+{
+  "name": "{{ORG_NAME}} CI",
+  "description": "Starter CI with the {{ORG_NAME}} defaults: read-only token, runs on push and PR.",
+  "iconName": "octicon check",
+  "categories": ["Automation"]
+}

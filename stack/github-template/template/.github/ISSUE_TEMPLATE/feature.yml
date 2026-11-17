@@ -1,0 +1,30 @@
+name: Feature
+description: Propose a new capability or a change in behaviour.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do, and what gets in the way today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: What should change? Sketches, examples and links welcome.
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: Done when
+      description: Acceptance criteria, as a checklist.
+      placeholder: |
+        - [ ] ...
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options: [p0 - now, p1 - next, p2 - later]
