@@ -1,0 +1,31 @@
+# Mission control — v1 lock.
+#
+# Pins the shape of this layer: its files, the registry schema and the project manifest schema.
+# Adding a registry field, status or domain is a change to this lock in the same commit;
+# verify.sh fails when tools/mc.py and this file disagree.
+schema: stack/v1
+layer: mission-control
+version: "1.0.0"
+
+pinned:
+  files:
+    - README.md
+    - registry.yaml
+    - project.example.yaml
+    - status.sh
+    - verify.sh
+    - tools/mc.py
+  registry:
+    schema: mission-control/v1
+    required: [id, repo, local, target, domain, status, layers]
+    statuses: [source, onboarded, candidate, review, exception]
+    domains: [rio, business, clients, creator, personal]
+  manifest:
+    file: rio.project.yaml
+    schema: rio.project/v1
+  labels: [promote, trickle-down]
+  issue_forms: [.github/ISSUE_TEMPLATE/promote.yml]
+
+boundaries:
+  writes: none            # v1 tools are read-only; sync (roadmap d) opens PRs, never merges
+  bulk: forbidden         # one repo at a time

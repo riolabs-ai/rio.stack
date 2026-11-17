@@ -1,0 +1,49 @@
+name: Promote a refinement up into rio.stack
+description: A project proved something that should become the default for every project.
+title: "[promote] <layer>: <what>"
+labels: ["promote", "stack"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Promote-up flow: `stack/mission-control/README.md` §3. Fill every field; a promote issue
+        with missing evidence stays open until the evidence is linked.
+  - type: input
+    id: project
+    attributes:
+      label: Source project (registry id and repo)
+      placeholder: jadenblack-github — jadenblack/.github
+    validations: {required: true}
+  - type: input
+    id: layer
+    attributes:
+      label: Layer
+      placeholder: github-template
+    validations: {required: true}
+  - type: input
+    id: proof
+    attributes:
+      label: Where it was proven (PR, commit or run link)
+    validations: {required: true}
+  - type: textarea
+    id: change
+    attributes:
+      label: The refinement, stated generically
+      description: What every project should get. No project, client, person or secret names.
+    validations: {required: true}
+  - type: dropdown
+    id: bump
+    attributes:
+      label: Version bump
+      options: [patch (fix), minor (additive), major (breaking — needs an upgrade note)]
+    validations: {required: true}
+  - type: checkboxes
+    id: qualified
+    attributes:
+      label: Qualified
+      options:
+        - label: Proven — ran in a real project for a week or through one real use
+        - label: General — expressed as placeholders, nothing project-specific
+        - label: Verified — the layer's verify.sh checks it, with a negative control
+        - label: Versioned — lock bumped in the same PR
+        - label: Reversible — a project can stay on the old version via an exception
