@@ -43,6 +43,15 @@ and keep `rio-template.values.yaml` in `<owner>/.github` so the next render is o
 Labels, per repo, dry run first: `bash $T/labels-sync.sh --repo <owner>/<repo> [--apply]`
 (creates or updates, never deletes).
 
+Repo settings baseline, per repo, audit first: `bash $T/repo-baseline.sh --repo <owner>/<repo> [--apply]`.
+It checks the free-tier items in `repo-baseline.yml`: delete head branches on merge, PR-titled
+squash commits, Dependabot alerts and security updates, and on public repos private
+vulnerability reporting, secret scanning with push protection, and a light
+`default-branch-baseline` ruleset (no deletion, no force-push; PRs not required, so chore
+commits still go straight in). Private repos on GitHub Free skip the public-only items with
+a note. `--apply` needs admin and touches one repo per call; it never deletes, changes
+visibility or edits an existing ruleset.
+
 **Values.** Every key is required; multi-line Markdown is fine. A value you don't have yet
 is written as words (`TODO(name): ...`), never invented. `render.sh` refuses empty values,
 unknown account kinds and a user render without `--profile-out`, and writes nothing when
@@ -55,6 +64,8 @@ template/                files with {{PLACEHOLDERS}}; template/_user/ only rende
 values.example.yaml      the acme values (also the list of every key)
 render.sh                values + template -> .github (+ profile repo); dry run by default
 labels-sync.sh           labels.yml -> one repo via gh; dry run by default
+repo-baseline.yml        free-tier per-repo settings, security and default-branch ruleset
+repo-baseline.sh         audit one repo against repo-baseline.yml; --apply fixes the gaps (admin)
 verify.sh                proves the layer is shippable
 template-v1.lock.yaml    pinned files, placeholders and profile targets
 DECOMPOSITION.md         what came from ai-seo-society/.github, and what's deferred to v2
