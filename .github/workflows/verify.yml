@@ -1,0 +1,169 @@
+# Hermetic stack/*/verify.sh gate, plus shellcheck and actionlint.
+# Machine-bound layers are an explicit skip list inside the layers job and are
+# named in the job summary. Any other stack/*/verify.sh runs.
+name: verify
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  layers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # python3 is on the runner. The hermetic verifies import PyYAML and do not use jq or yq.
+      - name: Install PyYAML
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y python3-yaml
+          python3 -c 'import yaml; print("PyYAML", yaml.__version__)'
+
+      - name: Run layer verify scripts
+        run: |
+          set -euo pipefail
+
+          summary="${GITHUB_STEP_SUMMARY:-}"
+          if [[ -z "$summary" ]]; then
+            echo "GITHUB_STEP_SUMMARY is not set" >&2
+            exit 1
+          fi
+
+          {
+            echo "## Layer verify"
+            echo
+            echo "| Layer | Result | Detail |"
+            echo "| --- | --- | --- |"
+          } >> "$summary"
+
+          shopt -s nullglob
+          candidates=(stack/*/verify.sh)
+          shopt -u nullglob
+          if [[ ${#candidates[@]} -eq 0 ]]; then
+            echo "No stack/*/verify.sh scripts found." >> "$summary"
+            echo "::error::No stack/*/verify.sh scripts found."
+            exit 1
+          fi
+
+          mapfile -t scripts < <(printf '%s\n' "${candidates[@]}" | LC_ALL=C sort)
+
+          fail=0
+          ran=0
+          skipped=0
+          for script in "${scripts[@]}"; do
+            layer="${script#stack/}"
+            layer="${layer%/verify.sh}"
+
+            # Explicit skip list. A layer not named here is gated.
+            reason=""
+            case "$layer" in
+              foundation)
+                reason="Needs Jaden's Hermes install (hermes CLI, age backup key, user systemd). Not hermetic on ubuntu-latest."
+                ;;
+              agency-agents)
+                reason="Needs Paperclip secrets (PAPERCLIP_API_URL, PAPERCLIP_API_KEY, PAPERCLIP_COMPANY_ID, CEO_AGENT_ID, CTO_AGENT_ID)."
+                ;;
+            esac
+
+            if [[ -n "$reason" ]]; then
+              skipped=$((skipped + 1))
+              printf '| %s | skip | %s |\n' "$layer" "$reason" >> "$summary"
+              printf 'SKIP  %s -- %s\n' "$script" "$reason"
+              continue
+            fi
+
+            ran=$((ran + 1))
+            echo "::group::$script"
+            set +e
+            bash "$script"
+            rc=$?
+            set -e
+            echo "::endgroup::"
+
+            if [[ "$rc" -eq 0 ]]; then
+              printf '| %s | pass | %s |\n' "$layer" "$script" >> "$summary"
+              printf 'PASS  %s\n' "$script"
+            else
+              fail=$((fail + 1))
+              printf '| %s | fail | %s exited %s |\n' "$layer" "$script" "$rc" >> "$summary"
+              printf 'FAIL  %s (exit %s)\n' "$script" "$rc"
+              echo "::error file=${script}::${script} failed (exit ${rc})"
+            fi
+          done
+
+          {
+            echo
+            echo "Ran ${ran} hermetic check(s); ${fail} failed; ${skipped} skipped."
+          } >> "$summary"
+
+          if [[ "$ran" -eq 0 ]]; then
+            echo "::error::No hermetic verify.sh ran."
+            exit 1
+          fi
+          if [[ "$fail" -ne 0 ]]; then
+            exit 1
+          fi
+
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install shellcheck
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y shellcheck
+          shellcheck --version
+
+      - name: shellcheck
+        run: |
+          set -euo pipefail
+          mapfile -t files < <(git ls-files '*.sh')
+          if [[ ${#files[@]} -eq 0 ]]; then
+            echo "No tracked shell scripts."
+            exit 0
+          fi
+          # Error only, so existing warnings do not fail the build.
+          shellcheck --severity=error --format=gcc "${files[@]}"
+
+      - name: actionlint
+        run: |
+          set -euo pipefail
+          version=1.7.12
+          checksum=8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+          file="actionlint_${version}_linux_amd64.tar.gz"
+          url="https://github.com/rhysd/actionlint/releases/download/v${version}/${file}"
+          curl -sSfL -o "/tmp/${file}" "$url"
+          echo "${checksum}  /tmp/${file}" | sha256sum -c -
+          tar -xzf "/tmp/${file}" -C /tmp actionlint
+          /tmp/actionlint -version
+          shopt -s nullglob
+          workflows=(.github/workflows/*.yml .github/workflows/*.yaml)
+          if [[ ${#workflows[@]} -eq 0 ]]; then
+            echo "No workflows under .github/workflows."
+            exit 1
+          fi
+          # This repository's workflows only. stack/github-template ships a fixture
+          # workflow that is template content, not this repo's CI.
+          /tmp/actionlint "${workflows[@]}"
