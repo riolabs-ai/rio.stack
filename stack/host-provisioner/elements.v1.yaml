@@ -1,0 +1,481 @@
+# Host provisioner — element register v1 (spec, not implementation).
+#
+# One entry per element the layer would install. Every element carries
+#   source        — the external citation it came from (S1…S8 below), and
+#   requirement   — the foundation requirement (stack/foundation/requirements.v1.yaml) it serves,
+#                   or `none` with `none_because` stating why no requirement covers it.
+# `verify` names the check verify.sh must print; an element with no verify line is not shippable.
+#
+# Admission rule (stack/foundation/README.md): a thing joins the stack only when it is mapped to the
+# requirement it serves and verify.sh can show that requirement is met. "Useful" is not a criterion.
+schema: host-provisioner/elements/v1
+layer: host-provisioner
+version: "0.1.0"
+as_of: 2026-11-21
+
+target:
+  distro: Linux Mint 22.3 (Zena)
+  distro_id: linuxmint
+  base: ubuntu-noble
+  arch: x86_64
+  measured_by: "/etc/os-release on the target host, 2026-11-21"
+  hermes_pin: v0.23.3+382.g52b5271          # `hermes --version` on the target host, 2026-11-21
+  pinned_repo: https://github.com/NousResearch/hermes-agent
+
+# ── sources ───────────────────────────────────────────────────────────────────────────────────────
+# Upstream docs are unversioned HTML served from hermes-agent.nousresearch.com/docs. They are cited by
+# page + section and pinned by fetch date; the *installer and CLI behaviour* they describe is pinned by
+# the hermes release tag above. A doc section that disappears is a spec change, not a silent edit.
+sources:
+  - id: S1
+    title: Installation — "Non-Sudo / System Service User Installs"
+    url: https://hermes-agent.nousresearch.com/docs/getting-started/installation#non-sudo--system-service-user-installs
+    gives: >-
+      The documented pro-grade Linux pattern — run the source installer as the intended service user;
+      "Its home, tool store, configuration, and launcher must belong to that user"; add
+      ~/.local/bin to PATH; `hermes doctor` from that account; `sudo loginctl enable-linger SERVICE_USER`
+      for a user service that must survive logout.
+  - id: S2
+    title: Installation — "Install layout", "What the source installer does"
+    url: https://hermes-agent.nousresearch.com/docs/getting-started/installation#install-layout
+    gives: >-
+      The official POSIX installer and the layout it produces: code in ~/.hermes/hermes-agent, CLI
+      wrapper at ~/.local/bin/hermes, user data in ~/.hermes/; HERMES_HOME selects user data;
+      --non-interactive skips prompts; installing as root does not select an FHS layout.
+  - id: S3
+    title: Nix & NixOS Setup — nixosModules.default, "Directory Layout"
+    url: https://hermes-agent.nousresearch.com/docs/getting-started/nix-setup#nixos-module
+    gives: >-
+      The upstream reference implementation of this layer: "declaratively manages user creation,
+      directories, config generation, secrets, documents, and service lifecycle"; the state/home/workspace
+      tree with modes (state 0750, home 0700); `settings` rendered to config.yaml; a .managed marker.
+      NixOS-only and Tier 2 best-effort — mined for the element checklist, never depended on.
+  - id: S4
+    title: Nix & NixOS Setup — "Cron on a native install needs a lingering service user"
+    url: https://hermes-agent.nousresearch.com/docs/getting-started/nix-setup#choosing-a-deployment-mode
+    gives: >-
+      Cron jobs run in `systemd-run --user --scope` and therefore need a systemd user manager for the
+      service uid — i.e. lingering. Without it, cron degrades to unscoped workers or fails closed under
+      cron.require_restart_safe_scope.
+  - id: S5
+    title: Security — "Best Practices for Production Deployment" / "Gateway Deployment Checklist"
+    url: https://hermes-agent.nousresearch.com/docs/user-guide/security#gateway-deployment-checklist
+    gives: >-
+      The ten-point production checklist: explicit allowlists, no GATEWAY_ALLOW_ALL_USERS, resource
+      limits, secrets in ~/.hermes/.env with proper permissions, DM pairing, reviewed command_allowlist,
+      explicit terminal.cwd, "Run as non-root — never run the gateway as root", log monitoring, updates.
+      Plus "Securing API Keys": chmod 600 ~/.hermes/.env, never commit .env.
+  - id: S6
+    title: Security — approvals modes and the cron/single-query/unattended deny defaults
+    url: https://hermes-agent.nousresearch.com/docs/user-guide/security#approval-modes
+    gives: >-
+      `approvals.mode` (smart|manual|off) and the headless defaults `cron_mode`, `single_query_mode`,
+      `unattended_mode` = deny; `hermes doctor --ack <advisory-id>` persists supply-chain acks to
+      config.security.acked_advisories.
+  - id: S7
+    title: Managed Scope
+    url: https://hermes-agent.nousresearch.com/docs/user-guide/managed-scope
+    gives: >-
+      Administrator-pinned, user-immutable config and env from /etc/hermes (root-owned, dir 0755, files
+      0644), leaf-level merge, wins over ~/.hermes/config.yaml, ~/.hermes/.env and the shell for exactly
+      the keys it pins; enforcement is filesystem permissions only.
+  - id: S8
+    title: Bitwarden Secrets Manager
+    url: https://hermes-agent.nousresearch.com/docs/user-guide/secrets/bitwarden
+    gives: >-
+      One machine-account token (BWS_ACCESS_TOKEN, in .env, never config.yaml) replaces N provider keys;
+      `hermes secrets bitwarden setup --access-token … --server-url … --project-id …` is the
+      non-interactive path; `hermes secrets bitwarden status` confirms.
+  - id: S9
+    title: Documentation — Bitwarden-adjacent secrets posture
+    url: https://hermes-agent.nousresearch.com/docs/user-guide/security#securing-api-keys
+    gives: '"keep API keys in ~/.hermes/.env with proper file permissions"; separate keys per service; never commit .env.'
+  - id: S10
+    title: OpenSSH sshd(8) — FILES, AUTHORIZED_KEYS FILE FORMAT
+    url: https://man.openbsd.org/sshd.8#FILES
+    gives: >-
+      The authoritative file modes for key-based login: ~/.ssh 700 (or stricter), authorized_keys 600.
+      This is the citation the owner's example script was reaching for when it chmod'd by hand.
+
+# ── elements ──────────────────────────────────────────────────────────────────────────────────────
+elements:
+  # Stage 1 — preflight
+  - id: HP-01
+    stage: preflight
+    element: Refuse any host that is not the pinned target (linuxmint 22.3, ubuntu-noble base, x86_64).
+    source: [S2]
+    requirement: null
+    none_because: >-
+      A precondition, not a guarantee: no foundation requirement says "the host is Mint". It exists so
+      that every other element's verification means something. Recorded here rather than forced onto
+      an unrelated requirement.
+    mechanism: install.sh reads /etc/os-release, compares ID/VERSION_ID and `uname -m` against the lock, exits 2 and names the mismatch.
+    verify: target
+    status: v0.1.0
+
+  - id: HP-02
+    stage: user
+    element: >-
+      Provisioned user identity — uid/gid, same-name primary group, /bin/bash, supplementary groups equal
+      to the distro's own first-user default (adm, cdrom, sudo, dip, plugdev, users, lpadmin, sambashare),
+      home directory 0750.
+    source: [S1, S10]
+    requirement: [R-01, R-04, R-05]
+    mechanism: >-
+      `adduser` (the distro's wrapper, not raw useradd) when the user is absent; group set asserted with
+      `usermod -aG` plus `gpasswd -d` for extras, so a re-run converges instead of accreting.
+    verify: user
+    status: v0.1.0
+    note: >-
+      The group list is the distribution's default for the first desktop account, measured on the target
+      host (`id -nG`), not a choice this layer makes. `sambashare` is included; the owner's example
+      script omitted it.
+
+  - id: HP-03
+    stage: user
+    element: >-
+      Sudo policy — privilege through the `sudo` group only, no NOPASSWD rule, no passwordless root in
+      any sudoers.d fragment this layer writes.
+    source: [S5]
+    requirement: [R-02, R-05]
+    mechanism: >-
+      The layer's only privileged writes are /etc/hermes/* (HP-15) and loginctl linger (HP-13); both run
+      under one interactive sudo prompt. verify.sh greps /etc/sudoers and /etc/sudoers.d for a
+      NOPASSWD grant to the target user and fails on a match.
+    verify: sudo-policy
+    status: v0.1.0
+
+  - id: HP-04
+    stage: user
+    element: >-
+      SSH layout — ~/.ssh 0700, authorized_keys 0600, public key from an operator-supplied file or, with
+      --adopt-sudo-user, copied from $SUDO_USER's ~/.ssh/authorized_keys.
+    source: [S10]
+    requirement: [R-05, R-24]
+    mechanism: >-
+      `install -d -m 700` and `install -m 600`; an existing authorized_keys is appended to, never
+      truncated. Never generates or rotates a keypair, never touches sshd_config.
+    verify: ssh
+    status: v0.1.0
+    note: >-
+      The $SUDO_USER copy is the owner's example pattern. Admitted on S10 (file modes) plus D-3; the
+      append-never-truncate rule is this layer's addition and is recorded as such.
+
+  - id: HP-05
+    stage: user
+    element: >-
+      Shell environment — `~/.local/bin` on PATH for the user (login and non-login shells), idempotently
+      added to ~/.profile / ~/.bashrc.
+    source: [S1]
+    requirement: [R-24]
+    mechanism: a single managed block between `# >>> rio.stack host-provisioner >>>` markers, rewritten in place on re-run.
+    verify: path
+    status: v0.1.0
+    note: >-
+      Maps to R-24 loosely — the wrapper is the route by which every other route (CLI, doctor, config set)
+      becomes reachable. Recorded as a route-resolution element, not a credential one.
+
+  # Stage 2 — directory standard
+  - id: HP-06
+    stage: directories
+    element: >-
+      HERMES_HOME ~/.hermes at 0700 with the upstream subdirectories (profiles/, worktrees/, kanban/,
+      logs/, skills/, cron/, memories/, backups/).
+    source: [S2, S3]
+    requirement: [R-01, R-05, R-30]
+    mechanism: >-
+      `install -d -m 700` per directory; ownership asserted to the target user on every run; nothing is
+      deleted, so an existing tree is adopted rather than rebuilt.
+    verify: hermes-home
+    status: v0.1.0
+
+  - id: HP-07
+    stage: directories
+    element: >-
+      Project root ~/local/rio (checkouts live one level below it, e.g. ~/local/rio/fourthwall,
+      ~/local/rio/rio.stack) — never used as an agent cwd.
+    source: [S3]
+    requirement: [R-03]
+    mechanism: >-
+      Directory created 0755; the lock records the concrete path. verify.sh resolves each profile's
+      terminal.cwd and fails if it equals (or is the parent of) the project root.
+    verify: cwd
+    status: v0.1.0
+    note: >-
+      The name is site-local (D-4). Upstream fixes only the shape (a working directory that is a
+      workspace, not a parent of workspaces); foundation R-03 fixes the cwd rule.
+
+  - id: HP-08
+    stage: directories
+    element: >-
+      terminal.cwd default $HOME for every profile — a git repository or the home directory, never a
+      parent of projects.
+    source: [S3, S5]
+    requirement: [R-02, R-03]
+    mechanism: >-
+      `hermes config set terminal.cwd "$HOME"` per profile, from the layer's desired-state file; the
+      rendered value is read back with `hermes config get`.
+    verify: cwd
+    status: v0.1.0
+
+  - id: HP-09
+    stage: directories
+    element: >-
+      Backup anchors — ~/.hermes/backups/ (Hermes' own config snapshots) plus one named off-machine
+      anchor: a BWS secrets project (HP-16) and the operator's chosen snapshot target.
+    source: [S8, S3]
+    requirement: [R-06, R-30]
+    mechanism: >-
+      The layer creates and asserts the on-box anchor and records the off-box anchor in the lock. It does
+      not implement a backup engine — R-06 stays `partial` until the snapshot job exists, and the spec says so.
+    verify: backup-anchor
+    status: v0.1.0-partial
+
+  - id: HP-10
+    stage: directories
+    element: >-
+      Permission audit — no secret file group- or world-readable anywhere the layer writes: files 0600,
+      directories 0700 (0750 where a group must read).
+    source: [S5, S9, S10]
+    requirement: [R-05]
+    mechanism: >-
+      Every write goes through `install -m`; verify.sh stat-scans the known secret paths
+      (~/.hermes/.env, ~/.hermes/profiles/*/.env, ~/.ssh/*, ~/.hermes/auth.json) and fails on any
+      mode with group or other bits.
+    verify: perms
+    status: v0.1.0
+
+  # Stage 3 — Hermes install and service
+  - id: HP-11
+    stage: install
+    element: >-
+      Hermes installed by the official POSIX installer, run as the target user, never reimplemented:
+      `curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash -s -- --non-interactive`,
+      producing ~/.local/bin/hermes and ~/.hermes/hermes-agent/.
+    source: [S1, S2]
+    requirement: [R-26, R-29]
+    mechanism: >-
+      wrapper only; `command -v hermes` short-circuits a re-run unless --upgrade is passed; the resolved
+      version is written to the lock and re-asserted on every run.
+    verify: install
+    status: v0.1.0
+
+  - id: HP-12
+    stage: install
+    element: '`hermes doctor` passes on the provisioned host, run from the target account with the installed wrapper.'
+    source: [S1, S2]
+    requirement: [R-29, R-25]
+    mechanism: verify.sh runs `hermes doctor` and requires exit 0; the install run prints the same output rather than a summary of it.
+    verify: doctor
+    status: v0.1.0
+
+  - id: HP-13
+    stage: install
+    element: >-
+      Gateway as a systemd *user* service (`hermes gateway install`) running as the target user, with
+      `loginctl enable-linger` so cron's `systemd-run --user --scope` survives logout and reboot.
+    source: [S1, S4, S5]
+    requirement: [R-25, R-02, R-13]
+    mechanism: >-
+      `loginctl enable-linger <user>` under the single sudo prompt; `systemctl --user is-enabled` and
+      `loginctl show-user <user> -p Linger` read back by verify.sh.
+    verify: service
+    status: v0.1.0
+    note: >-
+      R-13's mechanical half: a settings reload must not require killing the gateway. Unit restart policy
+      comes from `hermes gateway install`, not from this layer.
+
+  # Stage 4 — config as code
+  - id: HP-14
+    stage: config
+    element: >-
+      Render rule — every Hermes setting is applied by `hermes config set` (user scope) or by a file this
+      layer renders (managed scope, HP-15). No hand-edited config.yaml, ever.
+    source: [S2, S7]
+    requirement: [R-30, R-02]
+    mechanism: >-
+      The desired state lives in one YAML file in the layer; install.sh flattens it to dotted keys and
+      calls `hermes config set k v`, then reads each back with `hermes config get`. verify.sh re-reads and
+      diffs against the file.
+    verify: config-desired-state
+    status: v0.1.0
+
+  - id: HP-15
+    stage: config
+    element: >-
+      Managed scope /etc/hermes/config.yaml (root:root, dir 0755, file 0644) pinning the fleet-immutable
+      keys: security.redact_secrets, approvals.cron_mode, approvals.single_query_mode,
+      approvals.unattended_mode.
+    source: [S7, S6]
+    requirement: [R-02, R-25]
+    mechanism: >-
+      rendered by install.sh from the same desired-state file and written under the single sudo prompt;
+      verify.sh asserts ownership, modes and that `hermes config get` reports the managed source.
+    verify: managed-scope
+    status: v0.1.0
+    note: >-
+      Managed scope is filesystem-enforced only, and its .env is world-readable — so this layer pins
+      *policy* keys here and never a secret. `--no-managed-scope` exists for a single-user box (D-5).
+
+  - id: HP-16
+    stage: config
+    element: >-
+      Secrets posture — provider keys in ~/.hermes/profiles/<p>/.env at 0600; optional BWS machine account
+      per profile via `hermes secrets bitwarden setup` non-interactive flags. Never in config.yaml.
+    source: [S8, S9]
+    requirement: [R-04, R-05, R-06, R-28]
+    mechanism: >-
+      The layer creates no secret values. It asserts .env modes, refuses to write a key that already
+      exists (drift is reported, not silently overwritten), and records which store owns each class in
+      the lock.
+    verify: secrets
+    status: v0.1.0-partial
+
+  - id: HP-17
+    stage: config
+    element: >-
+      Profile baseline — `hermes profiles create` for each profile named in the desired state, with its
+      own .env and its own config dir; nothing inherits from a home-level env file.
+    source: [S3]
+    requirement: [R-01, R-04]
+    mechanism: >-
+      `hermes profiles create <name>` when absent; verify.sh asserts each profile home exists, is 0700,
+      and that no key in the home-level environment is the only source of a profile's credential.
+    verify: profiles
+    status: v0.1.0
+
+  - id: HP-18
+    stage: config
+    element: >-
+      Toolset ceiling per profile rendered from the desired state (platform_toolsets), with the charter's
+      action prohibitions mapped to the setting that enforces each.
+    source: [S7]
+    requirement: [R-02, R-17]
+    mechanism: >-
+      `hermes config set` per profile, then `hermes config get` read-back; verify.sh refuses a profile
+      whose effective toolsets exceed its declared ceiling.
+    verify: toolsets
+    status: v0.1.0
+    note: >-
+      This is the element that moves R-02 from `unmet` to `met` on a provisioned host: every "you must
+      not" in a charter gets a named key or it fails review.
+
+  - id: HP-19
+    stage: config
+    element: >-
+      Plugin single-source — each plugin name resolves from exactly one directory fleet-wide (user-level
+      ~/.hermes/plugins or exactly one profile dir, never two).
+    source: [S3]
+    requirement: [R-31, R-18]
+    mechanism: verify.sh enumerates plugin directories under ~/.hermes and every profile and fails on a name that appears twice.
+    verify: plugins
+    status: v0.1.0
+
+  - id: HP-20
+    stage: config
+    element: >-
+      Approval defaults for headless surfaces — cron_mode, single_query_mode, unattended_mode = deny;
+      supply-chain advisories acknowledged with `hermes doctor --ack` where the operator has read them.
+    source: [S6, S5]
+    requirement: [R-02, R-25]
+    mechanism: >-
+      desired-state keys applied per profile; acks are an operator action the layer *reports* (list of
+      unacked advisories) rather than performs silently.
+    verify: approvals
+    status: v0.1.0
+
+  # Stage 5 — the layer contract
+  - id: HP-21
+    stage: contract
+    element: >-
+      Layer contract — install.sh (dry-run by default, --apply to write, idempotent), 
+      host-provisioner-v0.1.0.lock.yaml (target, hermes pin, desired-state keys, element ids),
+      verify.sh (one named check per element).
+    source: [S3]
+    requirement: [R-26, R-29]
+    mechanism: >-
+      Mirrors stack/bot-profile and stack/github-template: no --apply writes nothing and prints every
+      decision; the lock is regenerated only by --apply, and verify.sh fails when the lock and the host
+      disagree.
+    verify: contract
+    status: v0.1.0
+
+  - id: HP-22
+    stage: contract
+    element: >-
+      verify.sh reports one line per element (`ok HP-0n <name>` / `FAIL HP-0n <name>`), exits non-zero on
+      any FAIL, and supports --json for CI.
+    source: [S3]
+    requirement: [R-29, R-16]
+    mechanism: >-
+      every element id in this file has a check named `verify`; HP-07 and HP-08 share the `cwd` probe.
+      verify.sh fails when a register id resolves to no check, and prints the value it read beside each ok.
+    verify: self-test
+    status: v0.1.0
+
+# ── bespoke register ─────────────────────────────────────────────────────────────────────────────
+# An element that is not upstream-sourced is admitted only with recorded evidence that nothing existing
+# covers it, and the evidence is reviewed by the owner, not asserted by the author.
+bespoke:
+  - id: B-01
+    item: Group list (adm, cdrom, sudo, dip, plugdev, users, lpadmin, sambashare)
+    verdict: not bespoke — distribution default, measured (`id -nG`, 2026-11-21)
+    admitted: true
+  - id: B-02
+    item: ~/local/rio as the project root name
+    verdict: bespoke value, sourced shape
+    evidence: >-
+      No upstream source names a projects directory; S3 fixes only that a workspace exists and is not a
+      parent of other workspaces. The concrete path is a site value in the lock, parameterised, and the
+      layer's *rule* (cwd is $HOME or a git repo) comes from R-03. Recomputed per host, never hardcoded in
+      install.sh.
+    admitted: true
+  - id: B-03
+    item: Copy authorized_keys from $SUDO_USER
+    verdict: admitted on pattern + file-mode citation
+    evidence: >-
+      S10 gives the modes; the copy itself is the owner's example script (rio.team/sripts/newuser.sh).
+      No upstream Hermes doc covers SSH bootstrap. Admitted with D-3; append-never-truncate is this
+      layer's own rule and is flagged in the spec.
+    admitted: true
+  - id: B-04
+    item: Interactive `passwd` in the example script
+    verdict: rejected — not idempotent, not config-as-code
+    admitted: false
+  - id: B-05
+    item: ~/work and ~/spaces from the example script
+    verdict: rejected — contradicts the live tree and has no source
+    admitted: false
+
+# ── gate accounting ──────────────────────────────────────────────────────────────────────────────
+gate:
+  rule: >-
+    Every element maps to a foundation requirement and cites an external source. A bespoke element is
+    admitted only with recorded evidence that nothing existing covers it.
+  element_count: 22
+  mapped_to_requirement: 21
+  unmapped: 1              # HP-01 (target pin) — precondition, reason recorded
+  partially_satisfied: 2   # HP-09 backup anchor, HP-16 secrets posture — the requirement above the layer
+  requirement_coverage:    # requirement -> elements
+    R-01: [HP-02, HP-06, HP-17]
+    R-02: [HP-03, HP-08, HP-13, HP-14, HP-15, HP-18, HP-20]
+    R-03: [HP-07, HP-08]
+    R-04: [HP-02, HP-16, HP-17]
+    R-05: [HP-02, HP-03, HP-04, HP-06, HP-10, HP-16]
+    R-06: [HP-09, HP-16]
+    R-13: [HP-13]
+    R-16: [HP-22]
+    R-17: [HP-18]
+    R-18: [HP-19]
+    R-24: [HP-04, HP-05]
+    R-25: [HP-12, HP-13, HP-15, HP-20]
+    R-26: [HP-11, HP-21]
+    R-28: [HP-16]
+    R-29: [HP-11, HP-12, HP-21, HP-22]
+    R-30: [HP-06, HP-09, HP-14]
+    R-31: [HP-19]
+  requirements_touched: 17
+  requirements_total: 35
+  untouched_note: >-
+    R-07…R-12, R-14, R-15, R-19, R-21…R-23, R-27, R-32…R-35 are board, output, memory, cost and
+    provider concerns. They belong to other layers; the provisioner must not pretend to serve them.

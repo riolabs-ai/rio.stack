@@ -26,6 +26,7 @@ from, so `main` must always keep at least one commit: an empty repository has no
 | [`stack/providers/`](stack/providers/) | Provider capability matrix, config as code, and permission tiers (R-32…R-35). | docs only |
 | [`stack/mission-control/`](stack/mission-control/) | **Mission control v1** — the registry of every Rio project, the `rio.project.yaml` manifest each project carries, and the promote-up / trickle-down loop that keeps them on the stack. Read-only `status.sh`. | `bash stack/mission-control/verify.sh` |
 | [`stack/agency-agents/`](stack/agency-agents/) | Pinned import of the 9 `paperclipai/companies` division leads as paused, $0-budget agents. | `bash stack/agency-agents/verify.sh` |
+| [`stack/host-provisioner/`](stack/host-provisioner/) | **Spec v0.1.0 — not implemented.** Bare-metal Linux Mint to a production Hermes host: user, directory standard, config-as-code defaults. Element register with a source and a foundation requirement per element. | not built yet |
 
 Layers that ship software (`bot-profile`, `agency-agents`, `github-template`, `mission-control`) follow the same contract: a
 `*-lock.yaml` that pins what it resolves to, an `install.sh` that is dry-run by default, and a
