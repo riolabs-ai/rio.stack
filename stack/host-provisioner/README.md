@@ -27,7 +27,9 @@ host-provisioner-v0.1.0.lock.yaml   what it resolved to on the host it ran on
 verify.sh                           one named check per element id; exit 0 = shippable
 ```
 
-Same contract as `stack/bot-profile`, `stack/github-template` and `stack/mission-control`.
+Same contract as `stack/bot-profile` and `stack/agency-agents` — both ship a dry-run-by-default
+`install.sh`. `stack/github-template` ships a renderer (`render.sh`, also dry-run by default), and
+`stack/mission-control` ships only read-only `status.sh`, so neither sets the install contract.
 
 ## What it will not do
 

@@ -96,6 +96,14 @@ sources:
     gives: >-
       The authoritative file modes for key-based login: ~/.ssh 700 (or stricter), authorized_keys 600.
       This is the citation the owner's example script was reaching for when it chmod'd by hand.
+  - id: S11
+    title: Platform Support — "Tier 1"
+    url: https://hermes-agent.nousresearch.com/docs/getting-started/platform-support#tier-1
+    gives: >-
+      The support contract the target pin is checked against: Linux (x86_64, aarch64) via install.sh is
+      Tier 1, "We test on the latest Ubuntu and WSL2. If your distro has glibc, systemd, and follows the
+      Filesystem Hierarchy Standard, it's likely to work pretty well." The concrete distro/version
+      compared at runtime is not from this page — it is measured in `target:` below (measured_by).
 
 # ── elements ──────────────────────────────────────────────────────────────────────────────────────
 elements:
@@ -103,12 +111,13 @@ elements:
   - id: HP-01
     stage: preflight
     element: Refuse any host that is not the pinned target (linuxmint 22.3, ubuntu-noble base, x86_64).
-    source: [S2]
+    source: [S11]
     requirement: null
     none_because: >-
       A precondition, not a guarantee: no foundation requirement says "the host is Mint". It exists so
       that every other element's verification means something. Recorded here rather than forced onto
-      an unrelated requirement.
+      an unrelated requirement. S11 gives the upstream support contract (Tier 1 Linux on glibc/systemd/
+      FHS); the distro, base and arch it is compared against are the measured values in `target:`.
     mechanism: install.sh reads /etc/os-release, compares ID/VERSION_ID and `uname -m` against the lock, exits 2 and names the mismatch.
     verify: target
     status: v0.1.0
@@ -120,7 +129,7 @@ elements:
       to the distro's own first-user default (adm, cdrom, sudo, dip, plugdev, users, lpadmin, sambashare),
       home directory 0750.
     source: [S1, S10]
-    requirement: [R-01, R-04, R-05]
+    requirement: [R-04, R-05]
     mechanism: >-
       `adduser` (the distro's wrapper, not raw useradd) when the user is absent; group set asserted with
       `usermod -aG` plus `gpasswd -d` for extras, so a re-run converges instead of accreting.
@@ -129,7 +138,9 @@ elements:
     note: >-
       The group list is the distribution's default for the first desktop account, measured on the target
       host (`id -nG`), not a choice this layer makes. `sambashare` is included; the owner's example
-      script omitted it.
+      script omitted it. Deliberately not mapped to R-01: R-01's own strongest objection is that profiles
+      share one OS user, so this single-identity element is the shared surface R-01 contrasts against,
+      not something that serves it.
 
   - id: HP-03
     stage: user
@@ -151,7 +162,7 @@ elements:
       SSH layout — ~/.ssh 0700, authorized_keys 0600, public key from an operator-supplied file or, with
       --adopt-sudo-user, copied from $SUDO_USER's ~/.ssh/authorized_keys.
     source: [S10]
-    requirement: [R-05, R-24]
+    requirement: [R-05]
     mechanism: >-
       `install -d -m 700` and `install -m 600`; an existing authorized_keys is appended to, never
       truncated. Never generates or rotates a keypair, never touches sshd_config.
@@ -167,13 +178,19 @@ elements:
       Shell environment — `~/.local/bin` on PATH for the user (login and non-login shells), idempotently
       added to ~/.profile / ~/.bashrc.
     source: [S1]
-    requirement: [R-24]
+    requirement: null
+    none_because: >-
+      S1 step 3 fixes the element ("Add the actual launcher directory to the service user's shell
+      environment": `export PATH="$HOME/.local/bin:$PATH"`), but no foundation requirement covers shell
+      reachability of the tool store. R-24 was the previous mapping and it does not hold: R-24's "route"
+      is a credential route, not a filesystem path. Recorded unmapped rather than mapped to a claim it
+      does not serve.
     mechanism: a single managed block between `# >>> rio.stack host-provisioner >>>` markers, rewritten in place on re-run.
     verify: path
     status: v0.1.0
     note: >-
-      Maps to R-24 loosely — the wrapper is the route by which every other route (CLI, doctor, config set)
-      becomes reachable. Recorded as a route-resolution element, not a credential one.
+      A precondition for every other CLI check: without the launcher on PATH, HP-12/HP-14/HP-20 cannot
+      run `hermes` at all. Existence is what verify.sh proves; correctness of the wrapper is HP-11's.
 
   # Stage 2 — directory standard
   - id: HP-06
@@ -394,9 +411,10 @@ elements:
     source: [S3]
     requirement: [R-26, R-29]
     mechanism: >-
-      Mirrors stack/bot-profile and stack/github-template: no --apply writes nothing and prints every
-      decision; the lock is regenerated only by --apply, and verify.sh fails when the lock and the host
-      disagree.
+      Mirrors the install.sh contract in stack/bot-profile and stack/agency-agents: no --apply writes
+      nothing and prints every decision; the lock is regenerated only by --apply, and verify.sh fails when
+      the lock and the host disagree. stack/github-template/render.sh is the precedent for a renderer that
+      is dry-run by default. stack/mission-control ships no installer — it is read-only status.
     verify: contract
     status: v0.1.0
 
@@ -446,6 +464,18 @@ bespoke:
     item: ~/work and ~/spaces from the example script
     verdict: rejected — contradicts the live tree and has no source
     admitted: false
+  - id: B-06
+    item: Dotfile layout (the example script's optional dotfiles clone), named in the card's goal #1
+    verdict: rejected — the layer's dotfile footprint is bounded, and a dotfiles repo is operator content, not a host requirement
+    evidence: >-
+      The card's "dotfile layout" is covered by three sourced elements and nothing else: HP-04 (~/.ssh
+      modes, S10), HP-05 (one marked block in ~/.profile / ~/.bashrc, S1 step 3), HP-06 (~/.hermes at
+      0700 with upstream subdirectories, S2/S3). Cloning an operator's personal dotfiles repo has no
+      upstream Hermes source, is not idempotent against a host that already has dotfiles, and Hermes
+      itself does not require one — S2's install layout puts everything it reads under ~/.hermes and
+      ~/.local/bin. Recorded as a rejection so a builder does not read "dotfile layout" as an unbuilt
+      element. An operator who wants a dotfiles repo runs it after this layer, outside the gate.
+    admitted: false
 
 # ── gate accounting ──────────────────────────────────────────────────────────────────────────────
 gate:
@@ -453,11 +483,11 @@ gate:
     Every element maps to a foundation requirement and cites an external source. A bespoke element is
     admitted only with recorded evidence that nothing existing covers it.
   element_count: 22
-  mapped_to_requirement: 21
-  unmapped: 1              # HP-01 (target pin) — precondition, reason recorded
+  mapped_to_requirement: 20
+  unmapped: 2              # HP-01 (target pin), HP-05 (PATH) — preconditions, reason recorded per element
   partially_satisfied: 2   # HP-09 backup anchor, HP-16 secrets posture — the requirement above the layer
   requirement_coverage:    # requirement -> elements
-    R-01: [HP-02, HP-06, HP-17]
+    R-01: [HP-06, HP-17]
     R-02: [HP-03, HP-08, HP-13, HP-14, HP-15, HP-18, HP-20]
     R-03: [HP-07, HP-08]
     R-04: [HP-02, HP-16, HP-17]
@@ -467,15 +497,16 @@ gate:
     R-16: [HP-22]
     R-17: [HP-18]
     R-18: [HP-19]
-    R-24: [HP-04, HP-05]
     R-25: [HP-12, HP-13, HP-15, HP-20]
     R-26: [HP-11, HP-21]
     R-28: [HP-16]
     R-29: [HP-11, HP-12, HP-21, HP-22]
     R-30: [HP-06, HP-09, HP-14]
     R-31: [HP-19]
-  requirements_touched: 17
+  requirements_touched: 16
   requirements_total: 35
   untouched_note: >-
-    R-07…R-12, R-14, R-15, R-19, R-21…R-23, R-27, R-32…R-35 are board, output, memory, cost and
+    R-07…R-12, R-14, R-15, R-19, R-21…R-24, R-27, R-32…R-35 are board, output, memory, route, cost and
     provider concerns. They belong to other layers; the provisioner must not pretend to serve them.
+    R-24 in particular was claimed by HP-04 and HP-05 in the first draft and dropped: its "route" is a
+    credential route, and file modes and a PATH entry do not serve it.

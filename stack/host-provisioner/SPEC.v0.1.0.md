@@ -33,6 +33,7 @@ negative test is documentation, not a guarantee, and does not count toward done.
 | Secret values | The layer asserts modes and ownership. It writes no key. **HP-16 is `v0.1.0-partial`.** |
 | Provider integration, models, cost ceilings | `stack/providers` (**R-32…R-35**). |
 | Any client profile | Fleet/infra only. |
+| A dotfiles repo (the card's "dotfile layout") | The layer's dotfile footprint is bounded and sourced: `~/.ssh` modes (HP-04), one marked block in `~/.profile`/`~/.bashrc` (HP-05), `~/.hermes` (HP-06). Cloning an operator's dotfiles repo is operator content with no upstream source — **B-06**, rejected. |
 
 ## 3. Decisions taken (each reversible, each recorded)
 
@@ -48,10 +49,12 @@ shape and ships in v0.2.0; the element register already carries everything it ne
 group list.
 *Confirm or overturn at spec review.*
 
-**D-2 — `requirement: none` is allowed, once.** HP-01 (refuse a host that is not the pinned target) is a
-precondition, not a guarantee. Forcing it onto an unrelated requirement would be the exact failure
-R-16 exists to prevent. The register records it as unmapped with a reason; the gate count is
-`21 mapped / 22 elements`, stated publicly, never rounded up.
+**D-2 — `requirement: none` is allowed only with a recorded reason, per element.** Two elements use it:
+HP-01 (refuse a host that is not the pinned target) and HP-05 (the launcher directory on `PATH`). Both are
+preconditions, not guarantees. Forcing them onto an unrelated requirement would be the exact failure R-16
+exists to prevent; mapping HP-05 to R-24 was the first draft's mistake, since R-24's "route" is a
+credential route. The register records both as unmapped with their reasons; the gate count is
+`20 mapped / 22 elements`, stated publicly, never rounded up.
 
 **D-3 — Admit the owner's `$SUDO_USER` authorized_keys copy** (HP-04), on **S10** for the file modes and
 on recorded evidence that no upstream Hermes doc covers SSH bootstrap. Append-only; never truncates.
@@ -80,7 +83,10 @@ stack/host-provisioner/
 Rules the implementation must keep:
 
 - **Dry run is the default.** `install.sh` with no `--apply` prints every decision and writes nothing —
-  `stack/bot-profile/install.sh` and `stack/github-template/install.sh` are the reference.
+  `stack/bot-profile/install.sh` and `stack/agency-agents/install.sh` are the reference. For a renderer,
+  `stack/github-template/render.sh` is the precedent ("Dry run by default: lists every file it would write
+  and checks the values, writes nothing"). `stack/mission-control` ships no installer; its `status.sh` is
+  read-only.
 - **Idempotent, converging.** Second run changes nothing and exits 0. Every mutation is
   "absent → create", "present + different → report unless `--force`".
 - **The lock is output, not input.** Written by `--apply`; `verify.sh` fails when the lock and the host
@@ -100,10 +106,11 @@ Rules the implementation must keep:
 | Config as code | HP-14 … HP-20 | render rule, managed scope, secrets posture, profile baseline, toolset ceilings, plugin single-source, approvals |
 | Contract | HP-21 … HP-22 | install/lock/verify, one named check per element |
 
-**Requirement coverage:** 17 of 35 requirements touched, 22 elements. The provisioner moves
+**Requirement coverage:** 16 of 35 requirements touched, 22 elements (20 mapped). The provisioner moves
 **R-02** from `unmet` to `met` on a provisioned host (HP-18: every charter "must not" gets a key), and
 makes **R-03** mechanical (HP-07/HP-08). It cannot move R-06 or R-05 above the layer's own writes, and
-says so instead of claiming otherwise.
+says so instead of claiming otherwise. Two elements are preconditions with no requirement (HP-01, HP-05 —
+D-2), and R-24 is untouched: neither file modes nor a `PATH` entry serve its credential-route claim.
 
 ## 6. Sources
 
@@ -123,6 +130,7 @@ not a silent edit.
 | S8 | Bitwarden Secrets Manager | one machine-account token replaces N provider keys; non-interactive setup |
 | S9 | Security → *Securing API Keys* | keys in `.env` with proper permissions, never committed |
 | S10 | `sshd(8)` FILES | `~/.ssh` 700, `authorized_keys` 600 |
+| S11 | Platform Support → *Tier 1* | Linux (x86_64, aarch64) via `install.sh` is Tier 1; "We test on the latest Ubuntu"; glibc + systemd + FHS is the support bar HP-01 pins against |
 
 **Not depended on, only mined:** the NixOS module. It is Tier 2, best-effort, NixOS-only — S3 says so
 plainly. It is the checklist of what "complete" means, not a runtime dependency.
@@ -132,9 +140,9 @@ plainly. It is the checklist of what "complete" means, not a runtime dependency.
 | # | Deliverable | State |
 |---|---|---|
 | 1 | layer name and directory | `stack/host-provisioner/` — no collision with the seven existing layers |
-| 2 | complete element list, each with a source | 22 elements, 10 sources (`elements.v1.yaml`) |
-| 3 | each element mapped to a foundation requirement | 21/22 mapped; HP-01 unmapped with recorded reason (D-2) |
-| 4 | evidence note for any would-be bespoke element | `bespoke:` block — 3 admitted (each with evidence), 2 rejected |
+| 2 | complete element list, each with a source | 22 elements, 11 sources (`elements.v1.yaml`) |
+| 3 | each element mapped to a foundation requirement | 20/22 mapped; HP-01 and HP-05 unmapped with recorded reasons (D-2) |
+| 4 | evidence note for any would-be bespoke element | `bespoke:` block — 3 admitted (each with evidence), 3 rejected (B-04 `passwd`, B-05 `~/work`+`~/spaces`, B-06 dotfiles) |
 | 5 | the v0.1.0 spec file in the repo | this file + `elements.v1.yaml` |
 
 **Ready to build** once the owner confirms D-1 (identity model) and D-5 (managed scope default). Every
