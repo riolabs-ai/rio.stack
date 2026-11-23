@@ -1,0 +1,5 @@
+# role: github — PRs, reviews, repo hygiene. Opens and reviews; does not merge.
+role: github
+kanban:
+  review_dispatch: true
+  auto_subscribe_on_create: true

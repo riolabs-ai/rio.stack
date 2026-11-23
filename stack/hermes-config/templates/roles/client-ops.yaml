@@ -1,0 +1,5 @@
+# role: client-ops — the client's executor. It writes code and runs tests in the client's repo; it
+# never merges and never tags. A merge or tag card belongs to the release profile, not here.
+role: client-ops
+kanban:
+  failure_limit: 3

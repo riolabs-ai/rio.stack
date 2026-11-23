@@ -1,0 +1,487 @@
+# Stack v1 lock file — Hermes config layer.
+#
+# This is the resolved state: what `install.sh --apply` renders onto a host. It is not a copy of
+# any one host's config — a host that differs from this file is drift, and `verify.sh --host`
+# names it. The first consumer is the RioLabs host; see `drift:` at the bottom for what that host
+# still owes.
+#
+# Do not hand-edit the `pinned:` block without a change to this layer. Every value here is read by
+# tools/hermes_config_check.py; a key the checker does not read is a comment, not a pin.
+schema: stack/v1
+layer: hermes-config
+version: "0.1.0"
+requires:
+  hermes: ">=0.23.3"          # measured on 0.23.3 — the version this layer was resolved against
+  stack: stack/v1
+
+pinned:
+  # --- files the layer ships ----------------------------------------------------------------
+  files:
+    - README.md
+    - hermes-config.lock.yaml
+    - install.sh
+    - verify.sh
+    - tools/hermes_config_check.py
+    - templates/root.config.yaml
+    - templates/dispatch_profiles.yaml
+    - templates/roles/root.yaml
+    - templates/roles/orchestrator.yaml
+    - templates/roles/github.yaml
+    - templates/roles/infra.yaml
+    - templates/roles/release.yaml
+    - templates/roles/design.yaml
+    - templates/roles/chat.yaml
+    - templates/roles/client.yaml
+    - templates/roles/client-ops.yaml
+    - templates/roles/template.yaml
+    - templates/soul/ROLE.md
+    - docs/decisions.md
+
+  # --- root keys: the completeness baseline ------------------------------------------------
+  # The keys templates/root.config.yaml defines. Every profile must render all of them: Hermes has
+  # no inheritance, so a key a profile omits resolves to the SHIPPED default, not to the root's
+  # value. This list is the pin — a template that loses a key changes this list and fails the
+  # checker, so the loss is a deliberate re-pin rather than a silent drift.
+  root_keys:
+    - approvals.cron_mode
+    - approvals.deny
+    - approvals.mode
+    - approvals.single_query_mode
+    - approvals.timeout
+    - approvals.unattended_mode
+    - delegation.backend
+    - delegation.inherit_mcp_toolsets
+    - delegation.max_concurrent_children
+    - delegation.max_iterations
+    - delegation.model
+    - delegation.provider
+    - delegation.reasoning_effort
+    - kanban.dispatch_in_gateway
+    - kanban.dispatch_interval_seconds
+    - kanban.dispatch_stale_timeout_seconds
+    - kanban.failure_limit
+    - kanban.max_in_progress
+    - kanban.max_in_progress_per_profile
+    - kanban.max_spawn
+    - kanban.reconcile_orphans
+    - kanban.review_dispatch
+    - mcp_servers
+    - memory.memory_char_limit
+    - memory.memory_enabled
+    - memory.nudge_interval
+    - memory.provider
+    - memory.user_char_limit
+    - memory.user_profile_enabled
+    - model.api_mode
+    - model.base_url
+    - model.default
+    - model.provider
+    - plugins.enabled
+    - secrets.bitwarden.access_token_env
+    - secrets.bitwarden.cache_ttl_seconds
+    - secrets.bitwarden.enabled
+    - secrets.bitwarden.override_existing
+    - secrets.bitwarden.project_id
+
+  # --- identity: one name per thing ---------------------------------------------------------
+  # Hermes cannot rename its installation root and cannot create a profile named `hermes`
+  # (core `_RESERVED_NAMES`). So the root keeps the canonical id `default` and carries a
+  # presentation-only display_name. Every other name in this layer is a real profile id.
+  identity:
+    scheme: one-name-per-thing
+    root:
+      id: default
+      display_name: hermes          # presentation only; profile.yaml:display_name
+      reason: >-
+        core _RESERVED_NAMES refuses a profile named `hermes`, and the installation root cannot be
+        renamed — so the chat identity is presentation-only and the id stays `default`. Declared
+        exception to invariant 1: a display name that differs from the id is allowed ONLY here,
+        and only because the id is unchangeable. E1 disposition is an owner decision, not this
+        layer's to take.
+    reserved_names: [hermes, default]
+    rule: >-
+      A bot's chat name equals its profile id everywhere except the root. Every dispatch entry,
+      card assignee, cron delivery target and gateway route names a live profile id.
+
+  # --- model policy: one policy, restated by every profile -----------------------------------
+  # Hermes has NO config inheritance: a profile that omits a key resolves the SHIPPED default,
+  # not the root's value (measured: root agent.clarify_timeout 7200, tmplv1 omits it and resolves
+  # 90). "Inherited" is therefore impossible; the layer's merge is what supplies the policy, and
+  # every profile renders a complete copy.
+  model_policy:
+    source: default                 # the root profile is the single place a policy change is made
+    policy_keys: [delegation.model, delegation.provider, delegation.reasoning_effort]
+    deep:                           # the deep tier: every managed profile restates these
+      model: deepseek-v4-pro
+      provider: deepseek
+      reasoning_effort: max
+    conversational:
+      default: "~deepseek/deepseek-flash-latest"
+      provider: nous
+    routes:                         # declared conversational routes; anything else is drift
+      default: {provider: nous, model: "~deepseek/deepseek-flash-latest"}
+      rio-hps: {provider: deepseek, model: deepseek-flash}
+      ase-github: {provider: deepseek, model: deepseek-flash}
+      infra: {provider: deepseek, model: deepseek-flash}
+      release-ops: {provider: nous, model: "~deepseek/deepseek-flash-latest"}
+      design: {provider: openrouter, model: "anthropic/claude-sonnet-5.5"}
+      kestrel: {provider: prodesk-proxy, model: grok-4.20-0309-non-reasoning}
+      alignsynch: {provider: deepseek, model: deepseek-flash}
+      alignsynch-ops: {provider: deepseek, model: deepseek-flash}
+      rory: {provider: openrouter, model: stealth/space-bunny-alpha}
+      blueberry-rio: {provider: dahl, model: zai-org/GLM-5.3-Flash}
+      tmplv1: {provider: deepseek, model: deepseek-flash}
+    providers:                      # base_url is a property of the provider, not of the profile
+      nous: {base_url: "https://inference-api.nousresearch.com/v1", api_mode: ""}
+      deepseek: {base_url: "https://api.deepseek.com/v1", api_mode: ""}
+      openrouter: {base_url: "https://openrouter.ai/api/v1", api_mode: chat_completions}
+      prodesk-proxy: {base_url: "http://127.0.0.1:8317/v1", api_mode: chat_completions}
+      dahl: {base_url: "https://api.dahl.ai/v1", api_mode: chat_completions}
+    exempt: [rory, blueberry-rio]   # E5: a genuinely different provider owns its whole stack
+    unmanaged: [tmplv1]             # probe/template profiles: no role, no policy obligation
+    model_map:                      # one definition, inert while backend is `default`
+      definer: rio-hps
+      key: delegation.backends.model_map
+      backend: default
+      map:                          # the option table itself, rendered into the definer only
+        options:
+          - name: fast
+            description: Conversational work — triage, summaries, routing decisions.
+            model: deepseek-flash
+            reasoning_effort: low
+          - name: deep
+            description: Deep work — architecture, review, anything with a trade-off in it.
+            model: deepseek-v4-pro
+            reasoning_effort: max
+      note: >-
+        A map is not core config; it is an option table read by the advanced-delegation plugin and
+        inert unless backend=model_map. The defect is a SECOND definition, so a second one fails.
+
+  # --- verbs: the command classes a profile may or may not hold ------------------------------
+  # Profiles name verbs; the layer owns the globs. A profile's approvals.deny is the union of the
+  # globs for the verbs it denies. Deny is the only lever core offers (there is no allow list), so
+  # "holds the verb" means "does not deny it" — and invariant 3 checks exactly that.
+  verbs:
+    merge: ["*gh pr merge*", "*gh pr approve*", "*gh api*merge*"]
+    tag: ["*git tag*", "*release:cut*", "*gh release create*"]
+    force_push: ["*git push --force*", "*git push -f*"]
+    history_rewrite: ["*git rebase*", "*git reset --hard*", "*git commit --amend*"]
+    repo_write: ["*git push*", "*git stash*", "*git worktree*"]
+
+  # --- profiles: the resolved fleet ----------------------------------------------------------
+  # role drives which template renders the profile; dispatch says whether cards may name it.
+  profiles:
+    default:
+      role: root
+      dispatch: true
+      model: {default: "~deepseek/deepseek-flash-latest", provider: nous}
+      approvals: {timeout: 3600, deny: []}
+      merge_capable: true            # the owner's own interactive surface, not a worker
+      plugins: [advanced-delegation, agent-importers, better-capabilities,
+                better-session-appearance, bot-forge, dashboard-button, disk-cleanup,
+                hermes-loadout, hermes-rich-ui, hermes-terminal, hindsight,
+                intelligent-tool-break, prompt-enhance, security-guidance, sessionretitler,
+                sidebar-manager, vercel-agent-desktop-support]
+      mcp: [context7, gitnexus, obsidian, neon]
+    rio-hps:
+      role: orchestrator
+      dispatch: true
+      model: {default: deepseek-flash, provider: deepseek}
+      approvals: {timeout: 3600, deny: [merge, tag]}
+      merge_capable: false
+      plugins: [ai-usage-tracker, disk-cleanup, hermes-ledgerline, hermes-project-stewardship,
+                hindsight, project-stewardship]
+      mcp: [context7, gitnexus, neon, cua-driver]
+    ase-github:
+      role: github
+      dispatch: true
+      model: {default: deepseek-flash, provider: deepseek}
+      approvals: {timeout: 3600, deny: [merge, tag]}
+      merge_capable: false
+      plugins: [hindsight, security-guidance]
+      mcp: [context7, gitnexus]
+    infra:
+      role: infra
+      dispatch: true
+      model: {default: deepseek-flash, provider: deepseek}
+      approvals: {timeout: 3600, deny: [merge, tag]}
+      merge_capable: false
+      plugins: [advanced-delegation, agent-importers, boardstate, bot-forge, dashboard-button,
+                disk-cleanup, hermes-bot-hq, hermes-cloud-file-manager, hermes-loadout,
+                hermes-tailscale, hermes-terminal, hindsight, kanban-gantt, memory-wiki,
+                nous-prices, openrouter-picker, project-manager, prompt-enhance,
+                security-guidance, sidebar-manager, withhuman]
+      mcp: [context7, gitnexus, neon]
+    release-ops:
+      role: release
+      dispatch: true
+      model: {default: "~deepseek/deepseek-flash-latest", provider: nous}
+      approvals: {timeout: 300, deny: [force_push, history_rewrite]}
+      merge_capable: true            # E3: the one agent profile whose job is merging
+      plugins: []
+      mcp: [context7]
+    design:
+      role: design
+      dispatch: true
+      model: {default: "anthropic/claude-sonnet-5.5", provider: openrouter}
+      approvals: {timeout: 3600, deny: [merge, tag]}
+      merge_capable: false
+      plugins: [advanced-delegation, agent-importers, better-capabilities,
+                better-session-appearance, bot-forge, dashboard-button, hermes-loadout,
+                hermes-rich-ui, hermes-terminal, intelligent-tool-break, prompt-enhance,
+                security-guidance, sessionretitler, sidebar-manager,
+                vercel-agent-desktop-support]
+      mcp: [context7, gitnexus]
+    kestrel:
+      role: chat
+      dispatch: true
+      model: {default: grok-4.20-0309-non-reasoning, provider: prodesk-proxy}
+      approvals: {timeout: 3600, deny: [merge, tag, force_push, history_rewrite]}
+      merge_capable: false
+      plugins: [advanced-delegation, agent-importers, better-capabilities,
+                better-session-appearance, bot-forge, dashboard-button, hermes-loadout,
+                hermes-rich-ui, hermes-terminal, intelligent-tool-break, prompt-enhance,
+                security-guidance, sessionretitler, sidebar-manager,
+                vercel-agent-desktop-support]
+      mcp: [context7, gitnexus]
+    alignsynch:
+      role: client
+      dispatch: true
+      model: {default: deepseek-flash, provider: deepseek}
+      approvals: {timeout: 3600, deny: [merge, tag, repo_write]}
+      merge_capable: false
+      plugins: [advanced-delegation, better-capabilities, dashboard-button, disk-cleanup,
+                hermes-loadout, prompt-enhance, security-guidance, sessionretitler]
+      mcp: [context7, gitnexus]
+    alignsynch-ops:
+      role: client-ops
+      dispatch: true
+      model: {default: deepseek-flash, provider: deepseek}
+      approvals: {timeout: 3600, deny: [merge, tag, repo_write]}
+      merge_capable: false
+      plugins: [advanced-delegation, better-capabilities, dashboard-button, disk-cleanup,
+                hermes-loadout, prompt-enhance, security-guidance, sessionretitler]
+      mcp: [context7, gitnexus]
+    rory:
+      role: chat
+      dispatch: true
+      model: {default: stealth/space-bunny-alpha, provider: openrouter}
+      approvals: {timeout: 2700, deny: [merge, tag]}
+      merge_capable: false
+      plugins: [disk-cleanup, hermes-resetwatch, openrouter-picker, security-guidance]
+      mcp: [context7]
+    blueberry-rio:
+      role: chat
+      dispatch: true
+      model: {default: zai-org/GLM-5.3-Flash, provider: dahl}
+      approvals: {timeout: 2700, deny: [merge, tag]}
+      merge_capable: false
+      plugins: [ai-usage-tracker, disk-cleanup, hermes-genui, hindsight, homeassistant,
+                security-guidance]
+      mcp: []
+    tmplv1:
+      role: template
+      dispatch: false                # a template is not a card assignee
+      model: {default: deepseek-flash, provider: deepseek}
+      approvals: {timeout: 360, deny: [merge, tag]}
+      merge_capable: false
+      plugins: []
+      mcp: []
+
+  # --- routing: who the gateway and the dispatcher default to ---------------------------------
+  routing:
+    orchestrator: rio-hps          # the one profile that routes work
+    default_assignee: alignsynch-ops
+    client_ops: {alignsynch: alignsynch-ops}   # a client's leadership profile hands work to its ops
+
+  # --- charters: what each role is for, rendered into templates/soul/ROLE.md ------------------
+  # A charter is prose, so it is prose here and nowhere else: install.sh writes SOUL.md only when a
+  # profile has none, and a persona is never overwritten by a script.
+  charters:
+    root:
+      one_job: You own Hermes itself — configuration, credentials, gateway, profiles, cron — and you answer for every in-app defect.
+      may: Change Hermes configuration through the sanctioned CLI; create and retire profiles; triage the fleet's machinery.
+      may_not: Orchestrate client work; take a client's checkout; merge or tag a client repo without the release profile.
+      escalates_to: The owner decides irreversible or credential-bearing steps. Hand a client-work card to the orchestrator.
+    orchestrator:
+      one_job: You turn intent into routed, gated work on the board, and you bring the decision back.
+      may: Decompose a card into child cards; assign each to a real profile; hold a decision gate.
+      may_not: Write client code; merge; tag; approve a PR; invent a scope nobody asked for.
+      escalates_to: An owner decision goes to the approval inbox. A Hermes defect goes to the CHO.
+    github:
+      one_job: You open, review and repair pull requests and keep the repo's hygiene honest.
+      may: Open PRs, review, comment, push a branch, run checks.
+      may_not: Merge a PR or move a tag — that is the release profile's job.
+      escalates_to: A merge or tag card goes to the release profile. A repo-ownership change goes to the owner.
+    infra:
+      one_job: You build and keep the hosts and services the fleet runs on, and nothing client-facing.
+      may: Provision, install, restart, and verify a host; read logs; change a service unit.
+      may_not: Take client work; edit a client's repo; merge or tag.
+      escalates_to: A client-facing change goes to the orchestrator. A credential goes to the owner.
+    release:
+      one_job: You merge what is ready and prepare the release — and you stop at the tag.
+      may: Merge an approved PR, approve, prepare release notes, run the release script's dry run.
+      may_not: Move a tag or publish from a worker; merge without a green exact head; touch client code.
+      escalates_to: A tag is an owner action. A failing exact head goes back to the author.
+    design:
+      one_job: You produce the visual and interaction work and hand it over as something buildable.
+      may: Design, render, review a UI, and critique a layout.
+      may_not: Merge, tag, or change a host.
+      escalates_to: An implementation decision goes to the orchestrator.
+    chat:
+      one_job: You answer in the channel as this profile's named bot and route what you cannot do.
+      may: Answer, clarify, and open a card for real work.
+      may_not: Merge, tag, or change Hermes configuration.
+      escalates_to: Work that needs a repo goes to the orchestrator. A config change goes to the CHO.
+    client:
+      one_job: You lead this client's work and keep it on the client's board and in the client's repo.
+      may: Plan, decide, and assign work to the client's ops profile.
+      may_not: Write production code; merge; tag; touch another client's repo.
+      escalates_to: Cross-client or credential decisions go to the owner.
+    client-ops:
+      one_job: You execute this client's cards in the client's repo, and you stop before the merge.
+      may: Write code, run tests, open a PR, and report the exact head.
+      may_not: Merge, tag, or change a host; edit another client's repo.
+      escalates_to: A merge or tag card goes to the release profile. A production secret goes to the owner.
+    template:
+      one_job: You are a probe. You exist so a profile can be rendered and read before it is given a role.
+      may: Nothing by default.
+      may_not: Be assigned a card.
+      escalates_to: Delete or promote this profile; it has no role.
+
+  # --- dispatch: the current allow-list ---------------------------------------------
+  # Every entry must be a live profile id. A dead name here is the 8.5 h silent-skip bug: the
+  # dispatcher matches a card's assignee against this list and skips with no owner-visible alarm.
+  dispatch_profiles:
+    [default, rio-hps, ase-github, infra, release-ops, design, kestrel, alignsynch,
+     alignsynch-ops, rory, blueberry-rio]
+
+  # --- plugins and MCP registry --------------------------------------------------------------
+  # One plugin dir, one registry. The registry is what the layer admits; a server not listed here
+  # is not part of the stack. `enabled` false means "declared but off", which is a state, not a
+  # removal — a stanza nobody reads is dead weight.
+  mcp_registry:
+    context7: {url: "https://mcp.context7.com/mcp", enabled: true}
+    gitnexus: {command: gitnexus, enabled: true}
+    neon: {url: "https://mcp.neon.tech/mcp", enabled: true}
+    obsidian: {url: "http://127.0.0.1:27124/mcp/", enabled: true}
+    cua-driver: {command: cua-driver, enabled: false}
+  dropped_mcp: [deepwiki, prisma-postgres, stripe, vercel, supabase, cloudinary, fourthwall]
+
+  # --- secrets: references only, never values ------------------------------------------------
+  # E2: no worker profile syncs a secret store. `secrets.bitwarden` has no allowlist key in core,
+  # so the control is a default-deny gate in front of materialisation, plus the sync being off
+  # everywhere except the one profile that needs it.
+  secrets:
+    bitwarden:
+      enabled: false                 # every profile; the release profile is the only exception
+      sync_profiles: [release-ops]
+      override_existing: true
+      allowlist_gate: ~/.hermes/scripts/bws_allowlist.py
+      allowlist_dir: ~/.hermes/secrets/allowlists
+      worker_fallback: worker.txt    # a profile with no allowlist of its own matches only ^HERMES_
+      refuse_always: [DATABASE_URL, "DATABASE_URL_UNPOOLED", "NEON_*", "*_POOLER",
+                      "*SECRET*", "*_TOKEN", "*_KEY"]
+      canary: DATABASE_URL           # a row named this must be REFUSED, not merely absent
+    rule: >-
+      The layer renders secret REFERENCES (an env var name, a path, a project id) and never a
+      value. A rendered config carrying a value is a bug in this layer, not a config.
+
+  # --- completion verification ---------------------------------------------------------------
+  # E4: verify on what is measurable. A rules read 403s for identities that cannot read rules and
+  # proved unclosable on a private free-plan repo, so it is not a verification source.
+  verification:
+    contract: [pr_state, tests, ci_exact_head]
+    rules_read: not_a_failure
+    rules_read_reason: >-
+      GitHub's branch-protection endpoint 403s for identities and plans that cannot read rules, so
+      a technically-correct card failed verification forever. A 403 is not a failed card.
+    tag_is_not_a_card_outcome: true
+    tag_reason: >-
+      release:cut refuses inside a worker (HERMES_KANBAN_TASK is set), so a tag cannot be a card's
+      outcome. A tag card is assigned to a human; the release profile prepares it.
+
+  # --- the invariants verify.sh enforces -----------------------------------------------------
+  invariants:
+    - id: one-name-per-thing
+      statement: >-
+        Every dispatch entry and every card assignee names a live profile; a bot's chat name equals
+        its profile id, except the root where the id is unchangeable.
+      mechanism: [dispatch_profiles, profiles.*.role, identity.root]
+    - id: no-secrets-in-harness-env
+      statement: >-
+        No worker profile syncs a secret store; a secret row named DATABASE_URL is refused by the
+        gate, not merely absent from a config.
+      mechanism: [secrets.bitwarden, secrets.bitwarden.canary]
+    - id: closable-cards
+      statement: >-
+        A merge or tag card has an assignee whose profile holds the verb; a tag is still not a card
+        outcome.
+      mechanism: [profiles.*.merge_capable, profiles.*.approvals.deny, verification.tag_is_not_a_card_outcome]
+    - id: verification-is-measurable
+      statement: >-
+        Completion verifies on PR state, tests and CI on the exact head; a rules read that 403s is
+        not a failure.
+      mechanism: [verification.contract, verification.rules_read]
+    - id: one-model-policy
+      statement: >-
+        One model policy at the root; a profile that restates a root key with a different value, or
+        omits a policy key, fails the checker.
+      mechanism: [model_policy.source, model_policy.policy_keys, model_policy.model_map]
+    - id: nothing-inherited-by-accident
+      statement: >-
+        Hermes has no config inheritance, so the layer renders every profile complete and states the
+        measurement that proves it.
+      mechanism: [model_policy.policy_keys, templates.root.config.yaml]
+
+# What install.sh will and will not do.
+install:
+  default: dry-run
+  writes: [owned config keys, charters where a profile has none]
+  refuses: [credentials, secret values, overwriting a differing profile without --force]
+  never: [hand-edit YAML, write a .env, fork Hermes core]
+  # Layer metadata that is not a Hermes config key: rendered for the checker and the operator, never
+  # written into a profile. `role` names the template; `verification` is the layer's completion
+  # policy, which a profile cannot express as a config key.
+  not_hermes_keys: [role, verification]
+  # Every key under secrets.* is refused on write except this boolean, because a secret is a value and
+  # the layer only ever renders references. The boolean says whether a profile syncs a store at all.
+  secret_write_exception: secrets.bitwarden.enabled
+
+# Facts this layer depends on. If Hermes changes one, this layer is wrong and should be re-pinned.
+depends_on:
+  - id: no-config-inheritance
+    claim: a profile that omits a key resolves the shipped default, not the root's value.
+    check: 'hermes config get agent.clarify_timeout; hermes -p tmplv1 config get agent.clarify_timeout'
+    measured: '7200 vs 90'
+  - id: reserved-names
+    claim: core refuses a profile named `hermes` and cannot rename the installation root.
+    check: 'hermes profile create hermes --dry-run 2>&1 | head -2'
+    measured: 'BLOCKED by _RESERVED_NAMES; the root id stays default'
+  - id: max-spawn-read-at-boot
+    claim: kanban.max_spawn is parsed at gateway start; a config change is inert until a restart.
+    check: 'grep "kanban dispatcher: max_spawn" ~/.hermes/logs/gateway.log | tail -1'
+  - id: secrets-bitwarden-has-no-allowlist
+    claim: core knows only enabled/project_id/override_existing/cache/auto_install/server_url.
+    check: 'grep -n "secrets" hermes_cli/config_defaults.py | head'
+
+# Drift between this layer and its first consumer host, as measured when the layer was written.
+# `verify.sh --host` reports each one by name; `install.sh --apply` reconciles it. A drift entry is
+# a known gap with an owner, never an accepted exception.
+drift:
+  - id: release-ops-not-dispatched
+    host: release-ops is absent from the root dispatch_profiles list
+    consequence: a card assigned release-ops is skipped with no alarm
+    owner: this layer (install.sh --apply reconciles it)
+  - id: release-ops-route-undeclared
+    host: release-ops runs ~deepseek/deepseek-flash-latest and no policy file declares it
+    consequence: the model policy checker reports an undeclared route
+    owner: this layer (declared in model_policy.routes)
+  - id: worker-merge-deny-missing
+    host: rio-hps, infra, design and the chat profiles carry no approvals.deny list
+    consequence: a worker can run a merge verb; the release profile is not the only way in
+    owner: this layer (install.sh --apply writes the deny lists)
+  - id: root-display-name-split
+    host: profile.yaml display_name is `hermes` while the id is `default`
+    consequence: a card assigned `hermes` matches no profile
+    owner: owner (E1 is undecided; the layer declares the exception rather than inventing a name)

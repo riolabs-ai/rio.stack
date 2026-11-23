@@ -24,10 +24,11 @@ from, so `main` must always keep at least one commit: an empty repository has no
 | [`stack/github-specops/`](stack/github-specops/) | The `specops` profile: a shell-first, evidence-led GitHub operator — persona, capability, five repeatable manifests with HIL gates. | docs + `tools/` (no `verify.sh` yet) |
 | [`stack/github-template/`](stack/github-template/) | **GitHub template v1** — the `.github` base standard for any account or org: profile page, community health defaults, issue/PR forms, starter CI, labels. Placeholders + `render.sh`; first consumer `jadenblack`. | `bash stack/github-template/verify.sh` |
 | [`stack/providers/`](stack/providers/) | Provider capability matrix, config as code, and permission tiers (R-32…R-35). | docs only |
+| [`stack/hermes-config/`](stack/hermes-config/) | **Hermes config v0.1.0** — the RioLabs-customized Hermes configuration as a versioned layer: one resolved fleet config rendered from templates, a dry-run-by-default installer, and six invariants with negative controls. First consumer: the RioLabs host. | `bash stack/hermes-config/verify.sh` |
 | [`stack/mission-control/`](stack/mission-control/) | **Mission control v1** — the registry of every Rio project, the `rio.project.yaml` manifest each project carries, and the promote-up / trickle-down loop that keeps them on the stack. Read-only `status.sh`. | `bash stack/mission-control/verify.sh` |
 | [`stack/agency-agents/`](stack/agency-agents/) | Pinned import of the 9 `paperclipai/companies` division leads as paused, $0-budget agents. | `bash stack/agency-agents/verify.sh` |
 
-Layers that ship software (`bot-profile`, `agency-agents`, `github-template`, `mission-control`) follow the same contract: a
+Layers that ship software (`bot-profile`, `agency-agents`, `github-template`, `mission-control`, `hermes-config`) follow the same contract: a
 `*-lock.yaml` that pins what it resolves to, an `install.sh` that is dry-run by default, and a
 `verify.sh` that must pass before the layer is considered shippable. `foundation` carries the
 requirements plus its own `verify.sh`; `github-specops` and `providers` are docs-and-tools

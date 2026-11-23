@@ -1,0 +1,3 @@
+# role: template — a probe/template profile. It is not a card assignee and carries no policy
+# obligation; it exists so a new profile can be rendered and read before it is given a role.
+role: template

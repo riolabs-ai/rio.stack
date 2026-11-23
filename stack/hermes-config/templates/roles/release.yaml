@@ -1,0 +1,11 @@
+# role: release — the one agent profile whose job is merging and releasing.
+# It holds the merge verb, so a merge card is closable by its assignee. It still does not hold the
+# tag verb's outcome: release:cut refuses inside a worker, so a tag is prepared here and taken from
+# an interactive session. Verification is PR state + tests + CI on the exact head; a rules read that
+# 403s is not a failure.
+role: release
+kanban:
+  review_dispatch: false
+verification:
+  contract: [pr_state, tests, ci_exact_head]
+  rules_read: not_a_failure

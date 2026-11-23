@@ -1,0 +1,8 @@
+# role: orchestrator — routes work, owns no client code. One per install.
+# It decomposes cards into child cards and brings decisions back; it does not merge.
+role: orchestrator
+kanban:
+  orchestrator_profile: "{{PROFILE}}"
+  auto_decompose: true
+  auto_decompose_per_tick: 3
+  review_dispatch: true

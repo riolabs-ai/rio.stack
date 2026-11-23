@@ -1,0 +1,5 @@
+# role: design — visual and interaction work. A genuinely different provider (openrouter), so its
+# conversational route is declared rather than inherited.
+role: design
+kanban:
+  review_dispatch: false
