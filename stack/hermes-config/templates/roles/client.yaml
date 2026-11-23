@@ -1,0 +1,6 @@
+# role: client — a client's own leadership profile. Client work stays on the client's board, in the
+# client's repo; the fleet never takes it over. Repo writes are denied here: a client profile plans
+# and decides, its ops profile executes.
+role: client
+kanban:
+  default_assignee: "{{CLIENT_OPS_PROFILE}}"

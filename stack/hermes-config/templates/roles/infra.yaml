@@ -1,0 +1,5 @@
+# role: infra — hosts, services, provisioners. Long-running work; the stale timeout is its ceiling.
+role: infra
+kanban:
+  dispatch_stale_timeout_seconds: 14400
+  reconcile_orphans: true

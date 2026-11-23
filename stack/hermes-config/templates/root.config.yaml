@@ -1,0 +1,65 @@
+# The layer's policy source. Every profile renders this file COMPLETE.
+#
+# Hermes has no config inheritance: a profile that omits a key resolves the shipped default, not
+# this value (measured: root agent.clarify_timeout 7200, tmplv1 omits it and resolves 90). So this
+# file is not a base that profiles extend — it is the set of keys every profile must carry a copy
+# of, and the layer's own merge is what fills them in. A profile that renders without one of these
+# keys fails verify.sh invariant 6.
+#
+# {{PLACEHOLDERS}} are resolved per profile from hermes-config.lock.yaml by
+# tools/hermes_config_check.py. Nothing here is a secret: a secret is a reference (an env var name,
+# a path, a project id), never a value.
+model:
+  default: "{{MODEL_DEFAULT}}"
+  provider: "{{MODEL_PROVIDER}}"
+  base_url: "{{MODEL_BASE_URL}}"
+  api_mode: "{{MODEL_API_MODE}}"
+delegation:
+  # The deep tier. E5: one policy, restated by every managed profile so a model change is one edit.
+  model: "{{DEEP_MODEL}}"
+  provider: "{{DEEP_PROVIDER}}"
+  reasoning_effort: "{{DEEP_EFFORT}}"
+  backend: default
+  max_iterations: 250
+  max_concurrent_children: 10
+  inherit_mcp_toolsets: true
+memory:
+  memory_enabled: true
+  user_profile_enabled: true
+  memory_char_limit: 2200
+  user_char_limit: 1375
+  nudge_interval: 10
+  provider: hindsight
+approvals:
+  # `deny` is the union of the globs for the verbs this profile denies (see verbs: in the lock).
+  # Deny is the only lever core offers — there is no allow list — so "holds the verb" means "does
+  # not deny it".
+  timeout: "{{APPROVALS_TIMEOUT}}"
+  deny: "{{APPROVALS_DENY}}"
+  mode: smart
+  single_query_mode: smart
+  cron_mode: deny
+  unattended_mode: deny
+plugins:
+  enabled: "{{PLUGINS}}"
+mcp_servers: "{{MCP}}"
+secrets:
+  # E2: no worker profile syncs a secret store. The layer renders the reference (a token env var
+  # name and a project id), never a value — and the gate refuses a row named DATABASE_URL.
+  bitwarden:
+    enabled: "{{BWS_ENABLED}}"
+    access_token_env: BWS_ACCESS_TOKEN
+    project_id: ""
+    override_existing: true
+    cache_ttl_seconds: 300
+kanban:
+  # A stale ceiling is the one value here that quietly wrecks a host, so the layer states it.
+  max_spawn: 4
+  max_in_progress: 4
+  max_in_progress_per_profile: 6
+  failure_limit: 3
+  review_dispatch: true
+  dispatch_interval_seconds: 60
+  dispatch_in_gateway: true
+  reconcile_orphans: true
+  dispatch_stale_timeout_seconds: 14400

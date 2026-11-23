@@ -1,0 +1,11 @@
+# role: root — the installation root (id `default`, display name `hermes`).
+# It is the only profile that owns the dispatch allow-list and the gateway's routing default.
+# Its display name is presentation only: the id cannot be renamed, so a card assigned `hermes`
+# matches no profile. That is the declared exception in invariant 1, not an oversight.
+role: root
+kanban:
+  dispatch_profiles: "{{DISPATCH}}"
+  orchestrator_profile: "{{ORCHESTRATOR}}"
+  default_assignee: "{{DEFAULT_ASSIGNEE}}"
+  auto_subscribe_on_create: true
+  notify_in_gateway: true

@@ -1,0 +1,20 @@
+# The dispatch allow-list. This is the file install.sh reads to set kanban.dispatch_profiles; the
+# lock's pinned.dispatch_profiles is its pinned mirror and verify.sh fails if the two disagree.
+#
+# Dispatch keys on a card's assignee matching a profile name in THIS list. A name here that is not
+# a live profile is the 8.5-hour silent-skip bug: cards assigned to it are skipped with no
+# owner-visible alarm. A live profile that is NOT here can never be spawned for a card.
+#
+# Every entry below is a profile id (not a display name) whose profiles.<id>.dispatch is true.
+dispatch_profiles:
+  - default          # root: the owner's interactive surface and the CHO's own profile
+  - rio-hps          # orchestrator: routes work, owns no client code
+  - ase-github       # github: PRs, reviews, repo hygiene
+  - infra            # infra: hosts, services, provisioners
+  - release-ops      # release: the one profile whose job is merging
+  - design           # design: visual and interaction work
+  - kestrel          # chat: messaging bot
+  - alignsynch       # client: AlignSynch leadership
+  - alignsynch-ops   # client-ops: AlignSynch executor
+  - rory             # chat: messaging bot
+  - blueberry-rio    # chat: messaging bot

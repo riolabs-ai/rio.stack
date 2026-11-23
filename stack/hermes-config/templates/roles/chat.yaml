@@ -1,0 +1,5 @@
+# role: chat — a messaging bot. Its chat name is its profile name; the gateway routes by profile.
+role: chat
+kanban:
+  notify_in_gateway: true
+  auto_subscribe_on_create: true
