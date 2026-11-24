@@ -1,0 +1,32 @@
+# Per-repo GitHub settings baseline (free tier). Read by repo-baseline.sh.
+#
+# Only what GitHub gives away for free. Features that need GitHub Pro/Team or Advanced
+# Security on private repos are marked `public_only` and skipped (with a note) elsewhere.
+# Every item is reversible from the repo's Settings page or with one gh call.
+schema: stack/v1
+layer: github-template
+part: repo-baseline
+version: "1.0.0"
+
+# PATCH /repos/{repo} — plain repo settings
+settings:
+  delete_branch_on_merge: true          # no stale head branches after a PR merges
+  allow_update_branch: true             # "Update branch" button on PRs
+  squash_merge_commit_title: PR_TITLE   # squash commits read like the PR title (#n)
+  squash_merge_commit_message: PR_BODY
+
+# Security features (each its own endpoint; see repo-baseline.sh)
+security:
+  vulnerability_alerts: true            # Dependabot alerts           (free, all repos)
+  automated_security_fixes: true        # Dependabot security updates (free, all repos)
+  private_vulnerability_reporting: true # matches SECURITY.md          (public_only)
+  secret_scanning: true                 # (public_only on Free)
+  secret_scanning_push_protection: true # (public_only on Free)
+
+# One ruleset on the default branch. Deliberately light: it blocks history rewrites and
+# branch deletion but does NOT require PRs, so chore/docs commits can still go straight in.
+# Rulesets on private repos need GitHub Pro (public_only).
+ruleset:
+  name: default-branch-baseline
+  enforcement: active
+  rules: [deletion, non_fast_forward]

@@ -22,6 +22,8 @@ pinned:
     - render.sh
     - verify.sh
     - labels-sync.sh
+    - repo-baseline.sh
+    - repo-baseline.yml
     - template/README.md
     - template/profile/README.md
     - template/_user/profile-pointer.md
