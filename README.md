@@ -32,3 +32,21 @@ Layers that ship software (`bot-profile`, `agency-agents`, `github-template`, `m
 `verify.sh` that must pass before the layer is considered shippable. `foundation` carries the
 requirements plus its own `verify.sh`; `github-specops` and `providers` are docs-and-tools
 layers with no installer.
+
+## Checks
+
+`.github/workflows/verify.yml` runs on pull requests, on pushes to `main`, and on `workflow_dispatch`.
+
+The layers job runs every `stack/*/verify.sh`. `stack/foundation/verify.sh` and `stack/agency-agents/verify.sh` are skipped (they need a Hermes install and Paperclip credentials) and named in the job summary. A new layer is checked unless it is added to that skip list.
+
+The lint job runs `shellcheck --severity=error` on tracked `*.sh` files and `actionlint` on `.github/workflows`.
+
+Locally, from the repository root (`python3` with PyYAML, `shellcheck`, `actionlint`):
+
+```bash
+bash stack/github-template/verify.sh
+bash stack/mission-control/verify.sh
+bash stack/bot-profile/verify.sh
+git ls-files '*.sh' | xargs -r shellcheck --severity=error
+actionlint .github/workflows/*.yml
+```
