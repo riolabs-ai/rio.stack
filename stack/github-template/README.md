@@ -12,6 +12,7 @@ issue and PR forms, a starter CI and a standard label set.
 | `CODE_OF_CONDUCT`, `CONTRIBUTING`, `SECURITY`, `SUPPORT`, `FUNDING.yml` | `<owner>/.github/` | Default for every repo without its own |
 | Issue forms (bug, feature, chore) + PR template | `<owner>/.github/.github/` | Default for every repo without its own |
 | `check` workflow | `<owner>/.github/.github/workflows/` | Fails on leftover placeholders or broken YAML |
+| `dependabot.yml` | `<owner>/.github/.github/` | Weekly grouped `chore(deps)` PRs that keep that repo's GitHub Actions current (free) |
 | `workflow-templates/` | `<owner>/.github/` | Starter CI in the Actions tab (orgs only) |
 | `labels.yml` | `<owner>/.github/` | Pushed per repo with `labels-sync.sh` |
 
