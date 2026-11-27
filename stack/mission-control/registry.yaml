@@ -173,7 +173,7 @@ projects:
     target: ~/local/jadenblack/.github
     domain: personal
     status: candidate
-    layers: {github-template: "1.0.0"}
+    layers: {github-template: "1.1.0"}
     notes: Rendered from github-template 1.0.0 (jadenblack/ops#10). Needs rio.project.yaml to be
       onboarded. Tracked in jadenblack/ops.
 
@@ -183,5 +183,5 @@ projects:
     target: ~/local/jadenblack/jadenblack
     domain: personal
     status: candidate
-    layers: {github-template: "1.0.0"}
+    layers: {github-template: "1.1.0"}
     notes: Profile page rendered from github-template 1.0.0.

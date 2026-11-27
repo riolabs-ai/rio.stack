@@ -21,6 +21,25 @@ for f in "${FILES[@]}"; do [ -s "$HERE/$f" ] && ok "present: $f" || bad "missing
 EXTRA=$(cd "$HERE" && find template -type f | sort | while read -r f; do printf '%s\n' "${FILES[@]}" | grep -qxF "$f" || echo "$f"; done)
 [ -z "$EXTRA" ] && ok "no unpinned files in template/" || bad "template files missing from the lock: $EXTRA"
 
+echo "-- dependabot"
+if "$PY" - "$HERE/template/.github/dependabot.yml" <<'PY'
+import sys, yaml
+doc = yaml.safe_load(open(sys.argv[1])) or {}
+updates = [u for u in (doc.get("updates") or []) if isinstance(u, dict)]
+actions = [u for u in updates if u.get("package-ecosystem") == "github-actions"]
+schedule = (actions[0].get("schedule") or {}) if len(actions) == 1 else {}
+ok = (
+    doc.get("version") == 2
+    and len(actions) == 1
+    and schedule.get("interval") == "weekly"
+    and "groups" in actions[0]
+)
+sys.exit(0 if ok else 1)
+PY
+then ok "dependabot: github-actions, weekly, grouped"
+else bad "dependabot.yml needs version 2, one github-actions update, weekly interval, and a groups key"
+fi
+
 echo "-- placeholders"
 "$PY" - "$HERE" <<'PY' || fail=$((fail+1))
 import pathlib, re, sys, yaml
